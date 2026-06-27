@@ -35,28 +35,47 @@
 var TRAILER = Buffer.from('\n---- Bun! ----\n');
 var NAME_PREFIXES = ['/$bunfs/root/', '/$bunfs/', 'B:/~BUN/root/', 'B:\\~BUN\\root\\'];
 var ENTRY_HEAD = 16; // name(8) + content(8)
-var WINDOW = 16384;  // bytes before the trailer to search for the modules array
+var WINDOW = 16384; // bytes before the trailer to search for the modules array
 
 function indexOfAll(buf, needle) {
-  var out = [], i = 0, nb = Buffer.from(needle);
-  while ((i = buf.indexOf(nb, i)) !== -1) { out.push(i); i++; }
+  var out = [],
+    i = 0,
+    nb = Buffer.from(needle);
+  while ((i = buf.indexOf(nb, i)) !== -1) {
+    out.push(i);
+    i++;
+  }
   return out;
 }
 
-function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function escapeRe(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 // Does the content at `off` begin with a recognised module/file magic?
 function looksLikeModuleContent(buf, off, len) {
   if (len < 4) return false;
-  var b0 = buf[off], b1 = buf[off + 1], b2 = buf[off + 2], b3 = buf[off + 3];
+  var b0 = buf[off],
+    b1 = buf[off + 1],
+    b2 = buf[off + 2],
+    b3 = buf[off + 3];
   // "// @"  — Bun's "// @bun @bytecode @bun-cjs" module header
   if (b0 === 0x2f && b1 === 0x2f && b2 === 0x20 && b3 === 0x40) return true;
   // ELF (Linux native addon / rg)
   if (b0 === 0x7f && b1 === 0x45 && b2 === 0x4c && b3 === 0x46) return true;
   // Mach-O (darwin native addon): 32/64-bit LE+BE and universal (fat)
-  var be = (b0 << 24 >>> 0) + (b1 << 16) + (b2 << 8) + b3;
-  if (be === 0xcffaedfe || be === 0xfeedfacf || be === 0xcefaedfe || be === 0xfeedface ||
-      be === 0xcafebabe || be === 0xcafebabf || be === 0xbebafeca || be === 0xbfbafeca) return true;
+  var be = ((b0 << 24) >>> 0) + (b1 << 16) + (b2 << 8) + b3;
+  if (
+    be === 0xcffaedfe ||
+    be === 0xfeedfacf ||
+    be === 0xcefaedfe ||
+    be === 0xfeedface ||
+    be === 0xcafebabe ||
+    be === 0xcafebabf ||
+    be === 0xbebafeca ||
+    be === 0xbfbafeca
+  )
+    return true;
   // WASM "\0asm"
   if (b0 === 0x00 && b1 === 0x61 && b2 === 0x73 && b3 === 0x6d) return true;
   // PE "MZ" (Windows native addon)
@@ -71,12 +90,22 @@ function longestStrideRun(entries) {
     var diff = entries[d].p - entries[d - 1].p;
     freq[diff] = (freq[diff] || 0) + 1;
   }
-  var stride = null, sBest = -1;
-  Object.keys(freq).forEach(function (key) { if (freq[key] > sBest) { sBest = freq[key]; stride = parseInt(key, 10); } });
-  var best = [entries[0]], cur = [entries[0]];
+  var stride = null,
+    sBest = -1;
+  Object.keys(freq).forEach((key) => {
+    if (freq[key] > sBest) {
+      sBest = freq[key];
+      stride = parseInt(key, 10);
+    }
+  });
+  var best = [entries[0]],
+    cur = [entries[0]];
   for (var r = 1; r < entries.length; r++) {
     if (entries[r].p - entries[r - 1].p === stride) cur.push(entries[r]);
-    else { if (cur.length > best.length) best = cur; cur = [entries[r]]; }
+    else {
+      if (cur.length > best.length) best = cur;
+      cur = [entries[r]];
+    }
   }
   if (cur.length > best.length) best = cur;
   return best;
@@ -90,10 +119,15 @@ function unpackBun(buf) {
   }
 
   // 1) candidate name-string positions (pick the first virtual-fs scheme that hits)
-  var namePos = [], prefix = null;
+  var namePos = [],
+    prefix = null;
   for (var pi = 0; pi < NAME_PREFIXES.length; pi++) {
     var hits = indexOfAll(buf, NAME_PREFIXES[pi]);
-    if (hits.length) { namePos = hits; prefix = NAME_PREFIXES[pi]; break; }
+    if (hits.length) {
+      namePos = hits;
+      prefix = NAME_PREFIXES[pi];
+      break;
+    }
   }
   if (!namePos.length) {
     throw new Error('could not locate embedded module names (no /$bunfs/ paths)');
@@ -114,12 +148,16 @@ function unpackBun(buf) {
       if (np + nameLen > fileLen) continue;
       var name = buf.toString('latin1', np, np + nameLen);
       if (!NAME_OK.test(name)) continue;
-      var contOff = buf.readUInt32LE(p + 8), contLen = buf.readUInt32LE(p + 12);
+      var contOff = buf.readUInt32LE(p + 8),
+        contLen = buf.readUInt32LE(p + 12);
       var contAbs = B + contOff;
       if (contLen <= 0 || contAbs < 0 || contAbs + contLen > fileLen) continue;
       if (!looksLikeModuleContent(buf, contAbs, contLen)) continue;
       var list = byBase.get(B);
-      if (!list) { list = []; byBase.set(B, list); }
+      if (!list) {
+        list = [];
+        byBase.set(B, list);
+      }
       list.push({ p: p, name: name, contentAbs: contAbs, contentLen: contLen });
     }
   }
@@ -127,32 +165,40 @@ function unpackBun(buf) {
 
   // 3) pick the base whose entries form the longest constant-stride run; tie-break
   //    on proximity to the trailer (the real array sits right before it).
-  var base = null, modulesEntries = null, bestLen = -1, bestMaxP = -1;
-  byBase.forEach(function (list, B) {
-    var seen = {}, distinct = [];
-    for (var i = 0; i < list.length; i++) if (!seen[list[i].p]) { seen[list[i].p] = 1; distinct.push(list[i]); }
-    distinct.sort(function (a, b) { return a.p - b.p; });
+  var base = null,
+    modulesEntries = null,
+    bestLen = -1,
+    bestMaxP = -1;
+  byBase.forEach((list, B) => {
+    var seen = {},
+      distinct = [];
+    for (var i = 0; i < list.length; i++)
+      if (!seen[list[i].p]) {
+        seen[list[i].p] = 1;
+        distinct.push(list[i]);
+      }
+    distinct.sort((a, b) => a.p - b.p);
     var run = longestStrideRun(distinct);
     var maxP = run[run.length - 1].p;
     if (run.length > bestLen || (run.length === bestLen && maxP > bestMaxP)) {
-      bestLen = run.length; bestMaxP = maxP; base = B; modulesEntries = run;
+      bestLen = run.length;
+      bestMaxP = maxP;
+      base = B;
+      modulesEntries = run;
     }
   });
 
   // 4) materialise modules
-  var mods = modulesEntries.map(function (e) {
-    return {
-      name: e.name,
-      basename: e.name.replace(/^.*\//, ''),
-      content: buf.subarray(e.contentAbs, e.contentAbs + e.contentLen)
-    };
-  });
+  var mods = modulesEntries.map((e) => ({
+    name: e.name,
+    basename: e.name.replace(/^.*\//, ''),
+    content: buf.subarray(e.contentAbs, e.contentAbs + e.contentLen)
+  }));
 
   // entry module = the bundled cli.js (fallback: largest .js)
-  var entry = mods.find(function (m) { return /(^|\/)cli\.js$/.test(m.name); });
+  var entry = mods.find((m) => /(^|\/)cli\.js$/.test(m.name));
   if (!entry) {
-    entry = mods.filter(function (m) { return /\.(c|m)?js$/.test(m.name); })
-      .sort(function (a, b) { return b.content.length - a.content.length; })[0];
+    entry = mods.filter((m) => /\.(c|m)?js$/.test(m.name)).sort((a, b) => b.content.length - a.content.length)[0];
   }
   if (!entry) throw new Error('could not identify the cli.js entry module');
 

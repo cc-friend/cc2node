@@ -28,7 +28,10 @@ var TRIPLES = {
 
 async function fetchRipgrep(platform, destPath, workDir, log) {
   var triple = TRIPLES[platform];
-  if (!triple) { log.warn('no ripgrep build mapped for ' + platform + ' — skipping rg'); return false; }
+  if (!triple) {
+    log.warn('no ripgrep build mapped for ' + platform + ' — skipping rg');
+    return false;
+  }
 
   var name = 'ripgrep-' + RG_VERSION + '-' + triple;
   var url = RG_BASE + '/' + RG_VERSION + '/' + name + '.tar.gz';
@@ -49,15 +52,24 @@ async function fetchRipgrep(platform, destPath, workDir, log) {
     if (!rg) throw new Error('rg binary not found inside ripgrep archive');
   }
   fs.copyFileSync(rg, destPath);
-  try { fs.chmodSync(destPath, 0o755); } catch (e) { /* ignore */ }
+  try {
+    fs.chmodSync(destPath, 0o755);
+  } catch (_e) {
+    /* ignore */
+  }
   return true;
 }
 
 function findRg(root) {
   var stack = [root];
   while (stack.length) {
-    var d = stack.pop(), ents;
-    try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch (e) { continue; }
+    var d = stack.pop(),
+      ents;
+    try {
+      ents = fs.readdirSync(d, { withFileTypes: true });
+    } catch (_e) {
+      continue;
+    }
     for (var i = 0; i < ents.length; i++) {
       var fp = path.join(d, ents[i].name);
       if (ents[i].isDirectory()) stack.push(fp);

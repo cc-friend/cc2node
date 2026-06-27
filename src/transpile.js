@@ -12,9 +12,12 @@
 var fs = require('fs');
 
 function loadEsbuild() {
-  try { return require('esbuild'); }
-  catch (e) {
-    throw new Error('esbuild is required for transpiling. Run `npm install` in the cc2node directory, or pass --no-transpile.');
+  try {
+    return require('esbuild');
+  } catch (_e) {
+    throw new Error(
+      'esbuild is required for transpiling. Run `npm install` in the cc2node directory, or pass --no-transpile.'
+    );
   }
 }
 
@@ -33,7 +36,11 @@ async function transpileTo(debunnedSource, outFile, target, polyfills) {
   });
   var head = '#!/usr/bin/env node\n' + (polyfills ? polyfills.replace(/\s+$/, '') + '\n' : '');
   fs.writeFileSync(outFile, head + result.code);
-  try { fs.chmodSync(outFile, 0o755); } catch (e) { /* ignore */ }
+  try {
+    fs.chmodSync(outFile, 0o755);
+  } catch (_e) {
+    /* ignore */
+  }
   return { outFile: outFile, bytes: Buffer.byteLength(head + result.code) };
 }
 

@@ -47,9 +47,16 @@ async function convert(opts) {
   var doRipgrep = opts.ripgrep !== false;
 
   var workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cc2node-'));
-  var cleanup = function () {
-    if (opts.keepTemp) { log.info('kept temp dir ' + workDir); return; }
-    try { fs.rmSync(workDir, { recursive: true, force: true }); } catch (e) { /* ignore */ }
+  var cleanup = () => {
+    if (opts.keepTemp) {
+      log.info('kept temp dir ' + workDir);
+      return;
+    }
+    try {
+      fs.rmSync(workDir, { recursive: true, force: true });
+    } catch (_e) {
+      /* ignore */
+    }
   };
 
   try {
@@ -63,9 +70,19 @@ async function convert(opts) {
     var buf = fs.readFileSync(binPath);
     var g = unpackMod.unpackBun(buf);
     var version = g.version || (/^[0-9.]+/.test(String(opts.input)) ? opts.input : 'unknown');
-    log.ok('found ' + g.modules.length + ' modules; entry=' + g.entry.basename +
-      ' (' + fmtBytes(g.entry.content.length) + '); version=' + version +
-      '  [base=' + g.base + ']');
+    log.ok(
+      'found ' +
+        g.modules.length +
+        ' modules; entry=' +
+        g.entry.basename +
+        ' (' +
+        fmtBytes(g.entry.content.length) +
+        '); version=' +
+        version +
+        '  [base=' +
+        g.base +
+        ']'
+    );
 
     // 3) prepare output dir
     var outDir = opts.out || path.resolve(process.cwd(), 'cc2node-' + version + '-' + platform);
@@ -84,7 +101,7 @@ async function convert(opts) {
     // 5) native addons (.node / .wasm) — written under their basename so the shim's
     //    /$bunfs/root/* redirect resolves them next to cli.js
     var assetsWritten = [];
-    g.modules.forEach(function (m) {
+    g.modules.forEach((m) => {
       if (/\.(node|wasm)$/.test(m.basename)) {
         fs.writeFileSync(path.join(outDir, m.basename), m.content);
         assetsWritten.push(m.basename + ' (' + fmtBytes(m.content.length) + ')');
@@ -150,7 +167,7 @@ async function convert(opts) {
   }
 }
 
-function writeOutputReadme(outDir, version, platform, builds) {
+function writeOutputReadme(outDir, version, platform, _builds) {
   var lines = [];
   lines.push('# Claude Code ' + version + ' — pure-Node build (' + platform + ')');
   lines.push('');

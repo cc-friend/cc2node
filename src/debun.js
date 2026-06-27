@@ -38,14 +38,15 @@ function debun(rawBundle, shimSource, version) {
   if (/^\(\s*function\b/.test(bundle) || /^\(\s*async\s+function\b/.test(bundle)) {
     invoked = bundle + WRAP_ARGS + ';\n';
   } else {
-    invoked = '(function(exports, require, module, __filename, __dirname) {\n' +
-      bundle + '\n})' + WRAP_ARGS + ';\n';
+    invoked = '(function(exports, require, module, __filename, __dirname) {\n' + bundle + '\n})' + WRAP_ARGS + ';\n';
   }
 
   // 3) assemble: shebang + banner + shim + invoked bundle
   var banner =
     '#!/usr/bin/env node\n' +
-    '// Claude Code ' + version + ' — de-bunned, runs on plain Node. Bun shim inlined below.\n';
+    '// Claude Code ' +
+    version +
+    ' — de-bunned, runs on plain Node. Bun shim inlined below.\n';
   var begin = '\n;/* ---- begin ' + version + ' bundle (Bun CJS wrapper, now invoked) ---- */\n';
 
   // normalise the shim to exactly one trailing newline; `begin` adds the blank

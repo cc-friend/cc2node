@@ -1,12 +1,31 @@
 {
   "name": "cc2node",
   "version": "1.0.0",
-  "description": "Convert any Bun-compiled Claude Code release into a pure-Node build that runs on plain Node 18/20/22/24+ (no Bun runtime). Downloads, unpacks the Bun binary, de-buns it, and transpiles Node 18/20/22 builds.",
+  "description": "Convert any Bun-compiled Claude Code release into a pure-Node build that runs on plain Node 18/20/22/24+ (no Bun). Downloads, unpacks the Bun binary, de-buns it, and transpiles Node 18/20/22 builds.",
+  "keywords": [
+    "claude-code",
+    "claude",
+    "anthropic",
+    "bun",
+    "node",
+    "transpile",
+    "debun",
+    "unpack",
+    "cli"
+  ],
+  "homepage": "https://github.com/cc-friend/cc2node#readme",
+  "bugs": "https://github.com/cc-friend/cc2node/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cc-friend/cc2node.git"
+  },
+  "license": "MIT",
+  "author": "Tom Chen (https://tomchen.org)",
+  "type": "commonjs",
   "bin": {
     "cc2node": "bin/cc2node.js"
   },
   "main": "src/convert.js",
-  "type": "commonjs",
   "engines": {
     "node": ">=18"
   },
@@ -14,13 +33,28 @@
     "bin",
     "src",
     "assets",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
-    "test": "node test/run.js"
+    "check": "node --check bin/cc2node.js && node -e \"require('./src/convert.js')\"",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "fix": "biome check --write .",
+    "test": "node test/run.js",
+    "release:patch": "vbt patch",
+    "release:minor": "vbt minor",
+    "release:major": "vbt major"
+  },
+  "vbt": {
+    "push": true,
+    "preBump": "npm run check && npm run lint"
   },
   "dependencies": {
     "esbuild": "^0.25.0"
   },
-  "license": "MIT"
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.0",
+    "vbt": "^2.0.0"
+  }
 }
