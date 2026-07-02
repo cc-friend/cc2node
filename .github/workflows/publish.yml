@@ -1,7 +1,9 @@
 name: publish
 
 # Triggered by the tag that `vbt patch|minor|major` pushes. Runs checkall, then
-# publishes to npm (prepublishOnly builds dist/).
+# publishes to npm via OIDC trusted publishing — no NPM_TOKEN. Configure the
+# trusted publisher on npmjs.com (this repo + this workflow) and enable
+# "Require two-factor authentication and disallow tokens". Provenance is automatic.
 on:
   push:
     tags: ['v*']
@@ -11,13 +13,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # npm provenance
+      id-token: write # OIDC trusted publishing + provenance
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm >= 11.5.1 (newer than the bundled npm).
+      - run: npm install -g npm@latest
       - run: npm ci
       - name: Verify tag matches package.json version
         run: |
@@ -26,6 +30,4 @@ jobs:
           echo "tag=$TAG package.json=$PKG"
           test "$TAG" = "$PKG"
       - run: npm run checkall
-      - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: npm publish

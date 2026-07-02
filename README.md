@@ -4,15 +4,17 @@
 [![ci](https://github.com/cc-friend/cc2node/actions/workflows/ci.yml/badge.svg)](https://github.com/cc-friend/cc2node/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
+**English** | [中文](README.zh.md) | [Français](README.fr.md)
+
 Convert any Bun-compiled Claude Code release into a pure-Node build that runs on plain **Node 18+**.
-No Bun runtime required. Built on [unbunjs](https://www.npmjs.com/package/unbunjs).
+No Bun runtime required. Built on [unbun](https://www.npmjs.com/package/unbunjs).
 
 Claude Code 2.1.112+ ships as a [Bun](https://bun.sh) `--compile` binary. cc2node downloads it, parses
-the embedded module graph with unbunjs, de-buns the entry bundle so it runs under Node, transpiles it
+the embedded module graph with unbun, de-buns the entry bundle so it runs under Node, transpiles it
 to a single Node-18-compatible `cli.js`, and bundles ripgrep plus the runtime deps Bun provided natively.
 
 ```sh
-npx cc2node 2.1.185
+npx cc2node 2.1.185                       # Or npx cc2node latest
 node cc2node-2.1.185-*/cli.js --version   # 2.1.185 (Claude Code)
 ```
 
@@ -65,7 +67,7 @@ like the official build.
 ## How it works
 
 1. Download the Bun binary from downloads.claude.ai (SHA-256 checked; GitHub and npm fallbacks).
-2. Parse the embedded module graph with [unbunjs](https://www.npmjs.com/package/unbunjs) and take the
+2. Parse the embedded module graph with [unbun](https://www.npmjs.com/package/unbunjs) and take the
    entry module plus native addons.
 3. De-bun `cli.js`: drop the `// @bun` directive, invoke the CommonJS wrapper Bun normally calls
    itself, and prepend `bun-shim.cjs` (a Node reimplementation of the `Bun.*` APIs).
@@ -94,15 +96,10 @@ npm run fixall     # biome autofix (lint + format)
 npm test           # unit tests (tsx + node:test)
 npm run build      # compile TypeScript to dist/
 npm run e2e        # heavy: convert real releases and run cli.js across Node majors (network)
+npm run release:patch   # vbt: bump, commit, tag vX.Y.Z, push → triggers the publish workflow (also :minor / :major)
 ```
 
 CI runs `checkall` across Node 18–24 on push/PR.
-
-### Releasing
-
-`npm run release:patch` bumps with [vbt](https://www.npmjs.com/package/vbt) (commit, tag `vX.Y.Z`,
-push). The tag triggers the publish workflow, which runs `checkall` then `npm publish` with provenance.
-Set the `NPM_TOKEN` repo secret.
 
 ## License
 
