@@ -1,17 +1,13 @@
 name: publish
 
-# Triggered by the tag that `vbt patch|minor|major` pushes. Runs the full
-# build × Node matrix, then publishes to npm only if it passes.
+# Triggered by the tag that `vbt patch|minor|major` pushes. Runs checkall, then
+# publishes to npm (prepublishOnly builds dist/).
 on:
   push:
-    tags: ["v*"]
+    tags: ['v*']
 
 jobs:
-  test:
-    uses: ./.github/workflows/test.yml
-
   publish:
-    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -29,6 +25,7 @@ jobs:
           PKG="$(node -p "require('./package.json').version")"
           echo "tag=$TAG package.json=$PKG"
           test "$TAG" = "$PKG"
+      - run: npm run checkall
       - run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

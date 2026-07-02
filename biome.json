@@ -1,33 +1,14 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.1/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-  "files": {
-    "includes": ["bin/**", "src/**", "test/**", "!test/.cache"]
-  },
-  "formatter": {
-    "enabled": true,
-    "indentStyle": "space",
-    "indentWidth": 2,
-    "lineWidth": 120
-  },
-  "javascript": {
-    "formatter": {
-      "quoteStyle": "single",
-      "semicolons": "always",
-      "trailingCommas": "none"
-    }
-  },
+  "files": { "includes": ["src/**/*.ts", "test/**/*.ts", "!test/.cache"] },
+  "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 120 },
+  "javascript": { "formatter": { "quoteStyle": "single", "semicolons": "always", "trailingCommas": "none" } },
   "linter": {
     "enabled": true,
     "rules": {
-      "preset": "recommended",
-      "correctness": { "noInnerDeclarations": "off" },
-      "style": {
-        "useConst": "off",
-        "useTemplate": "off",
-        "useNodejsImportProtocol": "off"
-      },
-      "suspicious": { "noAssignInExpressions": "off", "noVar": "off" }
+      "recommended": true,
+      "style": { "useTemplate": "off" }
     }
   }
 }

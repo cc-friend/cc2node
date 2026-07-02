@@ -1,60 +1,49 @@
 {
   "name": "cc2node",
   "version": "1.0.0",
-  "description": "Convert any Bun-compiled Claude Code release into a pure-Node build that runs on plain Node 18/20/22/24+ (no Bun). Downloads, unpacks the Bun binary, de-buns it, and transpiles Node 18/20/22 builds.",
-  "keywords": [
-    "claude-code",
-    "claude",
-    "anthropic",
-    "bun",
-    "node",
-    "transpile",
-    "debun",
-    "unpack",
-    "cli"
-  ],
+  "description": "Convert any Bun-compiled Claude Code release into a pure-Node build that runs on plain Node 18+ (no Bun). Built on unbunjs.",
+  "keywords": ["claude-code", "claude", "anthropic", "bun", "node", "unbun", "debun", "transpile", "cli"],
   "homepage": "https://github.com/cc-friend/cc2node#readme",
   "bugs": "https://github.com/cc-friend/cc2node/issues",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/cc-friend/cc2node.git"
-  },
+  "repository": { "type": "git", "url": "git+https://github.com/cc-friend/cc2node.git" },
   "license": "MIT",
-  "author": "Tom Chen (https://tomchen.org)",
-  "type": "commonjs",
-  "bin": {
-    "cc2node": "bin/cc2node.js"
-  },
-  "main": "src/convert.js",
-  "engines": {
-    "node": ">=18"
-  },
-  "files": [
-    "bin",
-    "src",
-    "assets",
-    "README.md",
-    "LICENSE"
-  ],
+  "author": "Tom Chen (tomchen.org)",
+  "bin": { "cc2node": "dist/cli.js" },
+  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "engines": { "node": ">=18" },
+  "files": ["dist", "assets", "README.md", "LICENSE"],
   "scripts": {
-    "check": "node --check bin/cc2node.js && node -e \"require('./src/convert.js')\"",
-    "lint": "biome check .",
-    "format": "biome format --write .",
-    "fix": "biome check --write .",
-    "test": "node test/run.js",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome lint src test",
+    "format": "biome format src test",
+    "test": "tsx test/index.test.ts",
+    "checkall": "npm run typecheck && npm run lint && npm run format && npm run test",
+    "fixall": "biome check --write src test",
+    "e2e": "tsx test/e2e.ts",
     "release:patch": "vbt patch",
     "release:minor": "vbt minor",
-    "release:major": "vbt major"
+    "release:major": "vbt major",
+    "prepublishOnly": "npm run build"
   },
   "vbt": {
     "push": true,
-    "preBump": "npm run check && npm run lint"
+    "preBump": "npm run checkall",
+    "postVerRepl": "npm install --package-lock-only --ignore-scripts",
+    "commitFiles": ["package-lock.json"]
   },
   "dependencies": {
+    "unbunjs": "^1.0.0",
     "esbuild": "^0.25.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.2.0",
+    "@biomejs/biome": "^2.5.2",
+    "@types/node": "^26.1.0",
+    "tsx": "^4.19.0",
+    "typescript": "^6.0.3",
     "vbt": "^2.0.0"
   }
 }

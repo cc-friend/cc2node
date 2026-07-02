@@ -2,21 +2,23 @@ name: ci
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
+    paths-ignore: ['**.md', 'LICENSE', '.gitignore']
   pull_request:
+    paths-ignore: ['**.md', 'LICENSE', '.gitignore']
   workflow_dispatch:
 
 jobs:
-  lint:
+  checkall:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ matrix.node }}
       - run: npm ci
-      - run: npm run lint
-      - run: npm run check
-
-  test:
-    uses: ./.github/workflows/test.yml
+      - run: npm run checkall

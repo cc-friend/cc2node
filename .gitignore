@@ -1,4 +1,5 @@
 node_modules/
+dist/
 test/.cache/
 *.log
 .DS_Store

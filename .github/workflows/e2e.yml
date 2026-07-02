@@ -1,0 +1,28 @@
+name: e2e
+
+# Heavy end-to-end: download real Claude Code releases, convert, and run the
+# resulting cli.js on each Node major. Manual only (network + large downloads).
+on:
+  workflow_dispatch:
+    inputs:
+      versions:
+        type: string
+        default: '2.1.113,2.1.153,latest'
+      platform:
+        type: string
+        default: linux-x64
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22, 24, 26]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm ci
+      - run: npm run e2e -- --this-node --platform ${{ inputs.platform }} --versions ${{ inputs.versions }}

@@ -1,32 +1,43 @@
-'use strict';
 /*
  * Obtain a Bun-compiled `claude` binary for a given version + platform.
  *
  * Sources, tried in order:
- *   1. downloads.claude.ai  — the official installer source. Has EVERY published
- *      version and platform as a raw binary, plus a manifest.json with SHA-256s.
+ *   1. downloads.claude.ai  — official installer source; every version + platform,
+ *      plus a manifest.json with SHA-256s.
  *   2. GitHub releases       — `claude-<platform>.tar.gz` (recent versions only).
- *   3. npm                   — `@anthropic-ai/claude-code@<version>` tarball; we
- *      scan its files for one carrying the Bun trailer.
+ *   3. npm                   — `@anthropic-ai/claude-code@<version>` tarball.
  *
  * Pure Node (https + child_process tar), Node 18+, works on old macOS/Linux.
  */
 
-var https = require('https');
-var http = require('http');
-var fs = require('fs');
-var path = require('path');
-var cp = require('child_process');
-var crypto = require('crypto');
-var _os = require('os');
+import cp from 'node:child_process';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
+import path from 'node:path';
+import type { Logger } from './log';
 
-var CLAUDE_BASE = 'https://downloads.claude.ai/claude-code-releases';
-var GH_BASE = 'https://github.com/anthropics/claude-code/releases/download';
+const CLAUDE_BASE = 'https://downloads.claude.ai/claude-code-releases';
+const GH_BASE = 'https://github.com/anthropics/claude-code/releases/download';
 
-var PLATFORMS = ['linux-x64', 'linux-x64-musl', 'linux-arm64', 'linux-arm64-musl', 'darwin-x64', 'darwin-arm64'];
+export const PLATFORMS = [
+  'linux-x64',
+  'linux-x64-musl',
+  'linux-arm64',
+  'linux-arm64-musl',
+  'darwin-x64',
+  'darwin-arm64'
+];
 
-function hostPlatform() {
-  var arch = process.arch === 'arm64' ? 'arm64' : 'x64';
+export interface DownloadOpts {
+  onProgress?: (pct: number, got: number, total: number) => void;
+  timeout?: number;
+  _redirects?: number;
+}
+
+export function hostPlatform(): string {
+  const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
   if (process.platform === 'darwin') return 'darwin-' + arch;
   // prefer musl static on Linux when we can detect it (works on old glibc too)
   if (process.platform === 'linux') {
@@ -34,7 +45,7 @@ function hostPlatform() {
       if (fs.existsSync('/lib/libc.musl-x86_64.so.1') || fs.existsSync('/lib/libc.musl-aarch64.so.1')) {
         return 'linux-' + arch + '-musl';
       }
-    } catch (_e) {
+    } catch {
       /* ignore */
     }
     return 'linux-' + arch;
@@ -43,32 +54,30 @@ function hostPlatform() {
 }
 
 // ---- low-level GET with redirects, into a file (with progress) ----
-function downloadTo(url, dest, opts) {
-  opts = opts || {};
-  return new Promise((resolve, reject) => {
-    var redirects = opts._redirects || 0;
+export function downloadTo(url: string, dest: string, opts: DownloadOpts = {}): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const redirects = opts._redirects || 0;
     if (redirects > 10) return reject(new Error('too many redirects'));
-    var mod = url.indexOf('https:') === 0 ? https : http;
-    var req = mod.get(url, { headers: { 'user-agent': 'cc2node', accept: '*/*' } }, (res) => {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+    const lib: typeof http = url.startsWith('https:') ? (https as unknown as typeof http) : http;
+    const req = lib.get(url, { headers: { 'user-agent': 'cc2node', accept: '*/*' } }, (res) => {
+      const status = res.statusCode ?? 0;
+      if (status >= 300 && status < 400 && res.headers.location) {
         res.resume();
-        var next = new URL(res.headers.location, url).toString();
-        return resolve(downloadTo(next, dest, Object.assign({}, opts, { _redirects: redirects + 1 })));
+        const next = new URL(res.headers.location, url).toString();
+        return resolve(downloadTo(next, dest, { ...opts, _redirects: redirects + 1 }));
       }
-      if (res.statusCode !== 200) {
+      if (status !== 200) {
         res.resume();
-        return reject(
-          Object.assign(new Error('HTTP ' + res.statusCode + ' for ' + url), { statusCode: res.statusCode })
-        );
+        return reject(Object.assign(new Error('HTTP ' + status + ' for ' + url), { statusCode: status }));
       }
-      var total = parseInt(res.headers['content-length'] || '0', 10);
-      var got = 0,
-        lastPct = -1;
-      var out = fs.createWriteStream(dest);
-      res.on('data', (chunk) => {
+      const total = Number.parseInt(String(res.headers['content-length'] ?? '0'), 10);
+      let got = 0;
+      let lastPct = -1;
+      const out = fs.createWriteStream(dest);
+      res.on('data', (chunk: Buffer) => {
         got += chunk.length;
         if (opts.onProgress && total) {
-          var pct = Math.floor((got / total) * 100);
+          const pct = Math.floor((got / total) * 100);
           if (pct !== lastPct) {
             lastPct = pct;
             opts.onProgress(pct, got, total);
@@ -77,9 +86,7 @@ function downloadTo(url, dest, opts) {
       });
       res.pipe(out);
       out.on('finish', () => {
-        out.close(() => {
-          resolve(dest);
-        });
+        out.close(() => resolve(dest));
       });
       out.on('error', reject);
     });
@@ -91,65 +98,62 @@ function downloadTo(url, dest, opts) {
 }
 
 // ---- GET a small text/JSON body into memory ----
-function getText(url, redirects) {
-  redirects = redirects || 0;
-  return new Promise((resolve, reject) => {
+export function getText(url: string, redirects = 0): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
     if (redirects > 10) return reject(new Error('too many redirects'));
     https
       .get(url, { headers: { 'user-agent': 'cc2node', accept: '*/*' } }, (res) => {
-        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        const status = res.statusCode ?? 0;
+        if (status >= 300 && status < 400 && res.headers.location) {
           res.resume();
           return resolve(getText(new URL(res.headers.location, url).toString(), redirects + 1));
         }
-        if (res.statusCode !== 200) {
+        if (status !== 200) {
           res.resume();
-          return reject(
-            Object.assign(new Error('HTTP ' + res.statusCode + ' for ' + url), { statusCode: res.statusCode })
-          );
+          return reject(Object.assign(new Error('HTTP ' + status + ' for ' + url), { statusCode: status }));
         }
-        var d = '';
+        let d = '';
         res.setEncoding('utf8');
-        res.on('data', (c) => {
+        res.on('data', (c: string) => {
           d += c;
         });
-        res.on('end', () => {
-          resolve(d);
-        });
+        res.on('end', () => resolve(d));
       })
       .on('error', reject);
   });
 }
 
-function sha256(file) {
-  var h = crypto.createHash('sha256');
+function sha256(file: string): string {
+  const h = crypto.createHash('sha256');
   h.update(fs.readFileSync(file));
   return h.digest('hex');
 }
 
-function progressBar(_log) {
+function progressBar(_log: Logger): (pct: number, got: number, total: number) => void {
   return (pct, got, total) => {
     if (!process.stderr.isTTY) return;
-    var mb = (got / 1048576).toFixed(1),
-      tmb = (total / 1048576).toFixed(1);
+    const mb = (got / 1048576).toFixed(1);
+    const tmb = (total / 1048576).toFixed(1);
     process.stderr.write('\r      ' + pct + '%  ' + mb + '/' + tmb + ' MB   ');
     if (pct >= 100) process.stderr.write('\r\x1b[K');
   };
 }
 
 // ---- source 1: downloads.claude.ai (raw binary + checksum) ----
-function fromClaudeAi(version, platform, dest, log) {
+function fromClaudeAi(version: string, platform: string, dest: string, log: Logger): Promise<string> {
   return getText(CLAUDE_BASE + '/' + version + '/manifest.json').then((body) => {
-    var checksum = null;
+    let checksum: string | null = null;
     try {
-      checksum = JSON.parse(body).platforms[platform]?.checksum || null;
-    } catch (_e) {
+      const manifest = JSON.parse(body) as { platforms?: Record<string, { checksum?: string }> };
+      checksum = manifest.platforms?.[platform]?.checksum ?? null;
+    } catch {
       /* ignore */
     }
-    var url = CLAUDE_BASE + '/' + version + '/' + platform + '/claude';
+    const url = CLAUDE_BASE + '/' + version + '/' + platform + '/claude';
     log.info('downloads.claude.ai → ' + version + '/' + platform);
     return downloadTo(url, dest, { onProgress: progressBar(log) }).then(() => {
       if (checksum) {
-        var actual = sha256(dest);
+        const actual = sha256(dest);
         if (actual !== checksum)
           throw new Error('checksum mismatch (' + actual.slice(0, 12) + '… ≠ ' + checksum.slice(0, 12) + '…)');
         log.ok('checksum verified (sha256 ' + checksum.slice(0, 12) + '…)');
@@ -162,96 +166,97 @@ function fromClaudeAi(version, platform, dest, log) {
 }
 
 // ---- source 2: GitHub release tarball ----
-function fromGitHub(version, platform, workDir, log) {
-  var asset = 'claude-' + platform + '.tar.gz';
-  var url = GH_BASE + '/v' + version + '/' + asset;
-  var tgz = path.join(workDir, asset);
+function fromGitHub(version: string, platform: string, workDir: string, log: Logger): Promise<string> {
+  const asset = 'claude-' + platform + '.tar.gz';
+  const url = GH_BASE + '/v' + version + '/' + asset;
+  const tgz = path.join(workDir, asset);
   log.info('github → ' + asset);
   return downloadTo(url, tgz, { onProgress: progressBar(log) }).then(() => extractBinaryFromTarball(tgz, workDir, log));
 }
 
 // ---- source 3: npm package ----
-function fromNpm(version, _platform, workDir, log) {
+function fromNpm(version: string, _platform: string, workDir: string, log: Logger): Promise<string> {
   log.info('npm → @anthropic-ai/claude-code@' + version);
-  var tarballUrl;
+  let tarballUrl: string;
   try {
     tarballUrl = cp
       .execSync('npm view @anthropic-ai/claude-code@' + version + ' dist.tarball', { encoding: 'utf8' })
       .trim();
   } catch (e) {
-    throw new Error('npm view failed: ' + e.message);
+    throw new Error('npm view failed: ' + (e as Error).message);
   }
   if (!tarballUrl) throw new Error('npm has no tarball for ' + version);
-  var tgz = path.join(workDir, 'npm-claude-code-' + version + '.tgz');
+  const tgz = path.join(workDir, 'npm-claude-code-' + version + '.tgz');
   return downloadTo(tarballUrl, tgz, { onProgress: progressBar(log) }).then(() => {
-    var dir = path.join(workDir, 'npm-' + version);
+    const dir = path.join(workDir, 'npm-' + version);
     fs.mkdirSync(dir, { recursive: true });
     cp.execFileSync('tar', ['-xzf', tgz, '-C', dir], { stdio: 'ignore' });
-    var bin = findBunBinary(dir);
+    const bin = findBunBinary(dir);
     if (!bin) throw new Error('npm package contains no Bun binary (likely a launcher-only package for this version)');
     return bin;
   });
 }
 
 // Extract a tarball and return the path to the contained Bun `claude` binary.
-function extractBinaryFromTarball(tgz, workDir, _log) {
-  var dir = path.join(workDir, path.basename(tgz).replace(/\.(tar\.gz|tgz)$/, '') + '-x');
+function extractBinaryFromTarball(tgz: string, workDir: string, _log?: Logger): string {
+  const dir = path.join(workDir, path.basename(tgz).replace(/\.(tar\.gz|tgz)$/, '') + '-x');
   fs.mkdirSync(dir, { recursive: true });
   cp.execFileSync('tar', ['-xzf', tgz, '-C', dir], { stdio: 'ignore' });
-  var bin = findBunBinary(dir);
+  const bin = findBunBinary(dir);
   if (!bin) throw new Error('no Bun binary found inside ' + path.basename(tgz));
   return bin;
 }
 
-// Find the file that is the Bun standalone binary: prefer a file named `claude`,
-// otherwise the largest file whose tail carries the Bun trailer.
-function findBunBinary(root) {
-  var files = [];
-  (function walk(d) {
-    var ents;
+// Find the Bun standalone binary: prefer a file named `claude`, else the largest
+// file whose tail carries the Bun trailer.
+function findBunBinary(root: string): string | null {
+  const files: [string, number][] = [];
+  const walk = (d: string): void => {
+    let ents: fs.Dirent[];
     try {
       ents = fs.readdirSync(d, { withFileTypes: true });
-    } catch (_e) {
+    } catch {
       return;
     }
-    for (var i = 0; i < ents.length; i++) {
-      var fp = path.join(d, ents[i].name);
-      if (ents[i].isDirectory()) walk(fp);
+    for (const ent of ents) {
+      const fp = path.join(d, ent.name);
+      if (ent.isDirectory()) walk(fp);
       else {
         try {
           files.push([fp, fs.statSync(fp).size]);
-        } catch (_e) {
+        } catch {
           /* ignore */
         }
       }
     }
-  })(root);
+  };
+  walk(root);
   files.sort((a, b) => b[1] - a[1]);
-  var named = files.filter((f) => /(^|\/)claude(\.exe)?$/.test(f[0]) && f[1] > 1e6);
-  var candidates = named.length ? named : files;
-  for (var i = 0; i < candidates.length; i++) {
-    if (candidates[i][1] < 1e6) continue; // skip tiny launchers
-    if (fileHasBunTrailer(candidates[i][0])) return candidates[i][0];
+  const named = files.filter((f) => /(^|\/)claude(\.exe)?$/.test(f[0]) && f[1] > 1e6);
+  const candidates = named.length ? named : files;
+  for (const c of candidates) {
+    if (c[1] < 1e6) continue; // skip tiny launchers
+    if (fileHasBunTrailer(c[0])) return c[0];
   }
   return null;
 }
 
-function fileHasBunTrailer(file) {
+function fileHasBunTrailer(file: string): boolean {
   // Scan backward in chunks (the trailer is near EOF, but macOS code-signs the
   // binary, appending ~size/128 bytes of signature AFTER the Bun trailer).
-  var fd = null;
+  let fd: number | null = null;
   try {
     fd = fs.openSync(file, 'r');
-    var size = fs.fstatSync(fd).size;
-    var needle = Buffer.from('---- Bun! ----');
-    var CHUNK = 32 * 1024 * 1024,
-      overlap = needle.length,
-      end = size;
+    const size = fs.fstatSync(fd).size;
+    const needle = Buffer.from('---- Bun! ----');
+    const CHUNK = 32 * 1024 * 1024;
+    const overlap = needle.length;
+    let end = size;
     while (end > 0) {
-      var start = Math.max(0, end - CHUNK);
-      var readEnd = Math.min(size, end + overlap);
-      var len = readEnd - start;
-      var b = Buffer.alloc(len);
+      const start = Math.max(0, end - CHUNK);
+      const readEnd = Math.min(size, end + overlap);
+      const len = readEnd - start;
+      const b = Buffer.alloc(len);
       fs.readSync(fd, b, 0, len, start);
       if (b.indexOf(needle) !== -1) {
         fs.closeSync(fd);
@@ -261,22 +266,23 @@ function fileHasBunTrailer(file) {
     }
     fs.closeSync(fd);
     return false;
-  } catch (_e) {
+  } catch {
     if (fd != null)
       try {
         fs.closeSync(fd);
-      } catch (_e2) {}
+      } catch {
+        /* ignore */
+      }
     return false;
   }
 }
 
-// Resolve a release channel ("latest" / "stable") to a concrete version, or pass
-// a concrete version through unchanged.
-function resolveChannel(input, log) {
-  var s = String(input).trim();
+// Resolve a release channel ("latest" / "stable") to a concrete version.
+export function resolveChannel(input: string, log?: Logger): Promise<string> {
+  const s = String(input).trim();
   if (s === 'latest' || s === 'stable') {
-    return getText(CLAUDE_BASE + '/' + s).then((v) => {
-      v = String(v).trim();
+    return getText(CLAUDE_BASE + '/' + s).then((raw) => {
+      const v = String(raw).trim();
       if (!/^[0-9]+\.[0-9]+\.[0-9]+/.test(v))
         throw new Error('bad version for "' + s + '": ' + JSON.stringify(v.slice(0, 40)));
       if (log) log.info(s + ' → ' + v);
@@ -287,7 +293,7 @@ function resolveChannel(input, log) {
 }
 
 // ---- public: resolve `input` (version | latest | stable | tarball | binary) to a binary path ----
-function obtainBinary(input, platform, workDir, log) {
+export function obtainBinary(input: string, platform: string, workDir: string, log: Logger): Promise<string> {
   // already a local file?
   if (input && fs.existsSync(input) && fs.statSync(input).isFile()) {
     if (/\.(tar\.gz|tgz)$/.test(input)) {
@@ -303,25 +309,16 @@ function obtainBinary(input, platform, workDir, log) {
     if (!/^[0-9]+\.[0-9]+\.[0-9]+(-[\w.]+)?$/.test(version)) {
       throw new Error('input is neither a version (x.y.z), "latest"/"stable", nor an existing file: ' + input);
     }
-    var dest = path.join(workDir, 'claude-' + version + '-' + platform);
+    const dest = path.join(workDir, 'claude-' + version + '-' + platform);
     log.step('Fetching Claude Code ' + version + ' (' + platform + ')');
     return fromClaudeAi(version, platform, dest, log)
-      .catch((e1) => {
-        log.warn('downloads.claude.ai failed: ' + e1.message);
+      .catch((e1: unknown) => {
+        log.warn('downloads.claude.ai failed: ' + (e1 as Error).message);
         return fromGitHub(version, platform, workDir, log);
       })
-      .catch((e2) => {
-        log.warn('github failed: ' + e2.message);
+      .catch((e2: unknown) => {
+        log.warn('github failed: ' + (e2 as Error).message);
         return fromNpm(version, platform, workDir, log);
       });
   });
 }
-
-module.exports = {
-  obtainBinary: obtainBinary,
-  resolveChannel: resolveChannel,
-  hostPlatform: hostPlatform,
-  PLATFORMS: PLATFORMS,
-  downloadTo: downloadTo,
-  getText: getText
-};
