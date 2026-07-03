@@ -50,6 +50,7 @@ cc2node                  安装/更新最新版为 `cc2`（= cc2node latest --li
 选项：
       --link[=<name>]  装到 ~/.cc2node 并在 PATH 上放一个 launcher（默认名：cc2）
       --bin-dir <dir>  launcher 存放目录（默认：~/.local/bin；Windows 上为 %USERPROFILE%\.cc2node\bin）
+      --no-add-path    不把 bin 目录写进 PATH（默认：--link 时会写）
   -t, --target <t>     转译目标（nodeXX，≥node18）；默认：跑 cc2node 的当前 Node
   -p, --platform <p>   目标平台（默认：当前主机）
   -o, --out <dir>      输出目录（覆盖默认位置）
@@ -64,7 +65,7 @@ cc2node                  安装/更新最新版为 `cc2`（= cc2node latest --li
 
 输出目录包含 `cli.js`、`bun-shim.cjs`、`*.node` 原生插件、`rg`（Windows 上为 `rg.exe`）、一个 `package.json`，以及一个 `node_modules`（ws、undici、ajv、ajv-formats）。`cli.js` 运行于转译目标及更新的 Node（默认：你跑 cc2node 的那个 Node；要最可移植就用 `-t node18`）。配置从 `~/.claude` 读取，与官方构建一致。
 
-用 `--link`（以及裸 `cc2node` 快捷方式）时，产物改放到 `~/.cc2node/versions/`，并在 `~/.local/bin` 放一个 launcher（默认 `cc2`）；若该目录不在 PATH，cc2node 会打印要加的那一行。在 Windows 上，launcher 为 `cc2.cmd` + `cc2.ps1`（外加一个无扩展名的 Git Bash shim），放在 `%USERPROFILE%\.cc2node\bin`，并会打印一条 `setx PATH` 命令。
+用 `--link`（以及裸 `cc2node` 快捷方式）时，产物改放到 `~/.cc2node/versions/`，并放一个 launcher（默认 `cc2`）到 `~/.local/bin`（Windows 上是 `cc2.cmd` + `cc2.ps1` + 一个 Git Bash 用的 `cc2`，位于 `%USERPROFILE%\.cc2node\bin`）。若该目录还不在 PATH 上，cc2node 会替你加进去 —— Windows 写用户级 PATH（走环境变量 API，不是 `setx`），bash/zsh 写对应 rc —— 然后你开一个新终端即可生效（已经开着的终端任何进程都改不了）。它不会重复添加，也不动本来就能用的 PATH；`--no-add-path` 可关掉（改为只打印那一行），fish/tcsh 则始终给你一条正确语法的手动命令。
 
 ## 工作原理
 

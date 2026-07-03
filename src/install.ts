@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { type AddPathResult, addToPath } from './addpath';
 import { type ConvertOptions, convert } from './convert';
 import { hostPlatform, resolveChannel } from './download';
 import { linkLauncher } from './link';
@@ -32,6 +33,7 @@ export interface InstallOptions {
   ripgrep?: boolean;
   force?: boolean;
   keepTemp?: boolean;
+  addPath?: boolean; // persist binDir onto the user's PATH when it isn't already
   log?: Logger;
 }
 
@@ -43,6 +45,7 @@ export interface InstallResult {
   launcherPath: string;
   onPath: boolean;
   pathHint?: string;
+  addPath?: AddPathResult; // outcome of the --add-path attempt (only when requested and not onPath)
 }
 
 function convertTo(opts: InstallOptions, input: string, platform: string, out: string, log: Logger) {
@@ -105,6 +108,10 @@ export async function install(opts: InstallOptions): Promise<InstallResult> {
     force: opts.force
   });
 
+  // Persist binDir onto PATH (opt-out via --no-add-path) only when it isn't
+  // already usable in this shell.
+  const addPath = opts.addPath && !link.onPath ? addToPath(binDir) : undefined;
+
   return {
     version,
     platform,
@@ -112,6 +119,7 @@ export async function install(opts: InstallOptions): Promise<InstallResult> {
     cached,
     launcherPath: link.launcherPath,
     onPath: link.onPath,
-    pathHint: link.pathHint
+    pathHint: link.pathHint,
+    addPath
   };
 }

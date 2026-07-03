@@ -58,6 +58,7 @@ Input:
 Options:
       --link[=<name>]  install to ~/.cc2node and add a launcher to PATH (default name: cc2)
       --bin-dir <dir>  where the launcher goes (default: ~/.local/bin, or %USERPROFILE%\.cc2node\bin on Windows)
+      --no-add-path    don't persist the bin dir onto PATH (default: do, with --link)
   -t, --target <t>     transpile target (nodeXX, node18+); default: the Node running cc2node
   -p, --platform <p>   target platform (default: this host)
   -o, --out <dir>      output directory (overrides the default location)
@@ -76,9 +77,12 @@ and a `node_modules` (ws, undici, ajv, ajv-formats). `cli.js` runs on the transp
 from `~/.claude`, like the official build.
 
 With `--link` (and the bare `cc2node` shortcut) the build instead goes to `~/.cc2node/versions/` and a
-launcher (default `cc2`) is placed in `~/.local/bin`; if that dir isn't on your PATH, cc2node prints
-the line to add. On Windows the launcher is `cc2.cmd` + `cc2.ps1` (plus an extensionless Git Bash
-shim) in `%USERPROFILE%\.cc2node\bin`, and cc2node prints a `setx PATH` line to add it.
+launcher (default `cc2`) lands in `~/.local/bin` (on Windows: `cc2.cmd` + `cc2.ps1` + a Git Bash `cc2`
+in `%USERPROFILE%\.cc2node\bin`). If that dir isn't already on your PATH, cc2node adds it for you — the
+Windows user PATH (via the environment API, not `setx`), or your bash/zsh rc — then you open a new
+terminal to pick it up (an already-open shell can't be changed by any process). It never adds a
+duplicate and leaves an already-working PATH untouched; `--no-add-path` opts out (prints the line
+instead), and fish/tcsh always get a correct manual line.
 
 ## How it works
 

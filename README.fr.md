@@ -50,6 +50,7 @@ Entrée :
 Options :
       --link[=<name>]  installe dans ~/.cc2node et met un lanceur sur le PATH (nom par défaut : cc2)
       --bin-dir <dir>  où va le lanceur (par défaut : ~/.local/bin, ou %USERPROFILE%\.cc2node\bin sous Windows)
+      --no-add-path    ne pas ajouter le dossier bin au PATH (par défaut : l'ajouter, avec --link)
   -t, --target <t>     cible de transpilation (nodeXX, ≥ node18) ; défaut : le Node qui exécute cc2node
   -p, --platform <p>   plateforme cible (par défaut : cet hôte)
   -o, --out <dir>      répertoire de sortie (remplace l'emplacement par défaut)
@@ -64,7 +65,7 @@ Plateformes : linux-x64, linux-x64-musl, linux-arm64, linux-arm64-musl, darwin-x
 
 Le répertoire de sortie contient `cli.js`, `bun-shim.cjs`, les addons `*.node`, `rg` (`rg.exe` sous Windows), un `package.json` et un `node_modules` (ws, undici, ajv, ajv-formats). `cli.js` s'exécute sur la cible de transpilation et plus récent (par défaut : le Node avec lequel vous avez lancé cc2node ; utilisez `-t node18` pour le build le plus portable). La configuration est lue depuis `~/.claude`, comme le build officiel.
 
-Avec `--link` (et le raccourci `cc2node` sans argument), le build va plutôt dans `~/.cc2node/versions/` et un lanceur (par défaut `cc2`) est placé dans `~/.local/bin` ; si ce dossier n'est pas sur votre PATH, cc2node affiche la ligne à ajouter. Sous Windows, le lanceur est `cc2.cmd` + `cc2.ps1` (plus un shim Git Bash sans extension) dans `%USERPROFILE%\.cc2node\bin`, et cc2node affiche une commande `setx PATH`.
+Avec `--link` (et le raccourci `cc2node` sans argument), le build va plutôt dans `~/.cc2node/versions/` et un lanceur (par défaut `cc2`) est placé dans `~/.local/bin` (sous Windows : `cc2.cmd` + `cc2.ps1` + un `cc2` pour Git Bash, dans `%USERPROFILE%\.cc2node\bin`). Si ce dossier n'est pas déjà sur votre PATH, cc2node l'y ajoute pour vous — le PATH utilisateur Windows (via l'API d'environnement, pas `setx`), ou votre rc bash/zsh — puis vous ouvrez un nouveau terminal pour qu'il soit pris en compte (aucun processus ne peut modifier un shell déjà ouvert). Il n'ajoute jamais de doublon et laisse intact un PATH déjà fonctionnel ; `--no-add-path` le désactive (affiche la ligne à la place), et fish/tcsh reçoivent toujours une commande manuelle correcte.
 
 ## Fonctionnement
 

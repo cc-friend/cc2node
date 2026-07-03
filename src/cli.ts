@@ -28,6 +28,7 @@ export interface Args {
   install: boolean;
   force: boolean;
   keepTemp: boolean;
+  addPath: boolean;
   help: boolean;
   version: boolean;
 }
@@ -45,6 +46,7 @@ export function parseArgs(argv: string[]): Args {
     install: true,
     force: false,
     keepTemp: false,
+    addPath: true,
     help: false,
     version: false
   };
@@ -86,6 +88,12 @@ export function parseArgs(argv: string[]): Args {
         break;
       case '--no-install':
         a.install = false;
+        break;
+      case '--add-path':
+        a.addPath = true;
+        break;
+      case '--no-add-path':
+        a.addPath = false;
         break;
       case '--keep-temp':
         a.keepTemp = true;
@@ -133,6 +141,7 @@ function help(): void {
       '      --bin-dir <dir>      where the launcher goes (default: ' +
       binDefault +
       ')\n' +
+      '      --no-add-path        do not persist the bin dir onto PATH (with --link; default: do)\n' +
       '  -t, --target <nodeXX>    transpile target, node18+ (default: this Node, ' +
       defaultTarget() +
       ')\n' +
@@ -206,6 +215,7 @@ function main(): void {
       ripgrep: args.ripgrep,
       force: args.force,
       keepTemp: args.keepTemp,
+      addPath: args.addPath,
       log
     })
       .then((r) => {
@@ -214,12 +224,27 @@ function main(): void {
         );
         if (!r.onPath) {
           const dir = path.dirname(r.launcherPath);
-          log.warn(dir + ' is not on PATH.');
-          if (process.platform === 'win32') {
-            log.warn('add it to your user PATH (new shells only):  ' + r.pathHint);
-            log.warn('or: System → Environment Variables → Path → New → ' + dir);
+          const ap = r.addPath;
+          if (ap?.changed) {
+            log.ok('added to PATH (' + ap.target + ')');
+            log.warn(
+              'open a NEW terminal to use ' + args.linkName + (ap.activate ? ', or run now:  ' + ap.activate : '')
+            );
+          } else if (ap?.ok) {
+            log.warn(
+              dir +
+                ' is on your PATH but not this shell — open a new terminal' +
+                (ap.activate ? ' (or: ' + ap.activate + ')' : '')
+            );
           } else {
-            log.warn('add it to your shell rc (~/.bashrc, ~/.zshrc, ~/.profile):  ' + r.pathHint);
+            log.warn(dir + ' is not on PATH.');
+            if (ap?.manualLine) log.warn('add it by hand:  ' + ap.manualLine);
+            else if (process.platform === 'win32') {
+              log.warn('add it to your user PATH:  ' + r.pathHint);
+              log.warn('or: System → Environment Variables → Path → New → ' + dir);
+            } else {
+              log.warn('add it to your shell rc (~/.bashrc, ~/.zshrc, ~/.profile):  ' + r.pathHint);
+            }
           }
         }
         log.step('run:  ' + args.linkName + ' --version');

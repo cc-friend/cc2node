@@ -35,6 +35,12 @@ test('parseArgs handles --target, --bin-dir, -f', () => {
   assert.equal(parseArgs(['-f']).force, true);
 });
 
+test('parseArgs: addPath defaults on and --no-add-path turns it off', () => {
+  assert.equal(parseArgs([]).addPath, true);
+  assert.equal(parseArgs(['--add-path']).addPath, true);
+  assert.equal(parseArgs(['--no-add-path']).addPath, false);
+});
+
 test('normalizeTarget accepts node18+ and rejects <18', () => {
   assert.equal(normalizeTarget('node20'), 'node20');
   assert.equal(normalizeTarget('22'), 'node22');

@@ -1,3 +1,5 @@
+export type { AddPathResult } from './addpath';
+export { addToPath } from './addpath';
 export type { ConvertOptions, ConvertResult } from './convert';
 export { convert, RUNTIME_DEPS } from './convert';
 export { hostPlatform, PLATFORMS } from './download';
