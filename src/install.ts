@@ -15,6 +15,9 @@ export function cc2Home(): string {
   return path.join(os.homedir(), '.cc2node');
 }
 export function defaultBinDir(): string {
+  // ~/.local/bin is a Unix convention; on Windows use %USERPROFILE%\.cc2node\bin
+  // (alongside the versions store) since there is no equivalent default on PATH.
+  if (process.platform === 'win32') return path.join(cc2Home(), 'bin');
   return path.join(os.homedir(), '.local', 'bin');
 }
 

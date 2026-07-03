@@ -1,0 +1,6 @@
+# Normalize all text files to LF in the repo and on checkout. Without this,
+# Windows checkouts (core.autocrlf=true, as on GitHub windows-latest runners)
+# get CRLF working trees and `biome format` — whose default lineEnding is lf —
+# fails `npm run checkall`. No tracked file needs CRLF (the .cmd launcher is
+# generated at runtime by src/link.ts, not stored here).
+* text=auto eol=lf

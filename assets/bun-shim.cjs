@@ -2,7 +2,8 @@
 /*
  * Bun -> Node compatibility shim for the de-bunned Claude Code 2.1.185 bundle.
  * Provides globalThis.Bun with the ~18 APIs the bundle calls directly, and
- * redirects /$bunfs/root/*.node requires to the native addons next to cli.js.
+ * redirects Bun's virtual-fs requires — POSIX /$bunfs/root/ and Windows
+ * B:\~BUN\root\ — to the native addons next to cli.js.
  * Goal: run the Bun-target bundle on plain Node, no Bun runtime.
  */
 const path = require('path');
@@ -13,11 +14,19 @@ const net = require('net');
 const { Readable, Writable } = require('stream');
 const Module = require('module');
 
-// ---- redirect Bun's in-binary virtual fs (/$bunfs/root/X) to local files ----
+// ---- redirect Bun's in-binary virtual fs to local files next to cli.js ----
+// Bun uses /$bunfs/root/X on POSIX and B:\~BUN\root\X (or B:/~BUN/root/X) on
+// Windows. Map any of these prefixes onto __dirname (where convert.ts wrote the
+// extracted .node/.wasm addons and other embedded files).
+const BUNFS_PREFIXES = ['/$bunfs/root/', 'B:\\~BUN\\root\\', 'B:/~BUN/root/'];
 const _resolveFilename = Module._resolveFilename;
 Module._resolveFilename = function (request, parent, isMain, options) {
-  if (typeof request === 'string' && request.startsWith('/$bunfs/root/')) {
-    return path.join(__dirname, request.slice('/$bunfs/root/'.length));
+  if (typeof request === 'string') {
+    for (const pre of BUNFS_PREFIXES) {
+      if (request.startsWith(pre)) {
+        return path.join(__dirname, request.slice(pre.length).replace(/\\/g, '/'));
+      }
+    }
   }
   return _resolveFilename.call(this, request, parent, isMain, options);
 };
@@ -34,7 +43,7 @@ Module._load = function (request, parent, isMain) {
   if (request === 'bun:ffi') {
     return {
       dlopen() { throw new Error('bun:ffi unavailable under Node'); },
-      CString: class CString {}, FFIType: {}, suffix: process.platform === 'darwin' ? 'dylib' : 'so',
+      CString: class CString {}, FFIType: {}, suffix: process.platform === 'win32' ? 'dll' : process.platform === 'darwin' ? 'dylib' : 'so',
       ptr() { return 0n; }, read: {}, toArrayBuffer() { return new ArrayBuffer(0); },
     };
   }

@@ -120,6 +120,7 @@ export function defaultTarget(major = Number.parseInt(process.versions.node.spli
 }
 
 function help(): void {
+  const binDefault = process.platform === 'win32' ? '%USERPROFILE%\\.cc2node\\bin' : '~/.local/bin';
   process.stdout.write(
     'cc2node ' +
       pkgVersion() +
@@ -129,7 +130,9 @@ function help(): void {
       '  cc2node                  install/update the latest as `cc2` (= cc2node latest --link)\n\n' +
       'Options:\n' +
       '      --link[=<name>]      install to ~/.cc2node and put a launcher on PATH (default name: cc2)\n' +
-      '      --bin-dir <dir>      where the launcher goes (default: ~/.local/bin)\n' +
+      '      --bin-dir <dir>      where the launcher goes (default: ' +
+      binDefault +
+      ')\n' +
       '  -t, --target <nodeXX>    transpile target, node18+ (default: this Node, ' +
       defaultTarget() +
       ')\n' +
@@ -210,8 +213,14 @@ function main(): void {
           args.linkName + ' → ' + r.launcherPath + '  [Claude Code ' + r.version + (r.cached ? ', cached' : '') + ']'
         );
         if (!r.onPath) {
-          log.warn(path.dirname(r.launcherPath) + ' is not on PATH.');
-          log.warn('add it to your shell rc (~/.bashrc, ~/.zshrc, ~/.profile):  ' + r.pathHint);
+          const dir = path.dirname(r.launcherPath);
+          log.warn(dir + ' is not on PATH.');
+          if (process.platform === 'win32') {
+            log.warn('add it to your user PATH (new shells only):  ' + r.pathHint);
+            log.warn('or: System → Environment Variables → Path → New → ' + dir);
+          } else {
+            log.warn('add it to your shell rc (~/.bashrc, ~/.zshrc, ~/.profile):  ' + r.pathHint);
+          }
         }
         log.step('run:  ' + args.linkName + ' --version');
         process.exit(0);

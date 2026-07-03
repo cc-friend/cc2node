@@ -57,7 +57,7 @@ Input:
 
 Options:
       --link[=<name>]  install to ~/.cc2node and add a launcher to PATH (default name: cc2)
-      --bin-dir <dir>  where the launcher goes (default: ~/.local/bin)
+      --bin-dir <dir>  where the launcher goes (default: ~/.local/bin, or %USERPROFILE%\.cc2node\bin on Windows)
   -t, --target <t>     transpile target (nodeXX, node18+); default: the Node running cc2node
   -p, --platform <p>   target platform (default: this host)
   -o, --out <dir>      output directory (overrides the default location)
@@ -67,17 +67,18 @@ Options:
       --keep-temp      keep the temp work dir
   -h, --help / -v, --version
 
-Platforms: linux-x64, linux-x64-musl, linux-arm64, linux-arm64-musl, darwin-x64, darwin-arm64.
+Platforms: linux-x64, linux-x64-musl, linux-arm64, linux-arm64-musl, darwin-x64, darwin-arm64, win32-x64, win32-arm64.
 ```
 
-The output directory contains `cli.js`, `bun-shim.cjs`, the `*.node` addons, `rg`, a `package.json`,
+The output directory contains `cli.js`, `bun-shim.cjs`, the `*.node` addons, `rg` (`rg.exe` on Windows), a `package.json`,
 and a `node_modules` (ws, undici, ajv, ajv-formats). `cli.js` runs on the transpile target and newer
 (default: the Node you ran cc2node with; use `-t node18` for the most portable build). Config is read
 from `~/.claude`, like the official build.
 
 With `--link` (and the bare `cc2node` shortcut) the build instead goes to `~/.cc2node/versions/` and a
 launcher (default `cc2`) is placed in `~/.local/bin`; if that dir isn't on your PATH, cc2node prints
-the line to add.
+the line to add. On Windows the launcher is `cc2.cmd` + `cc2.ps1` (plus an extensionless Git Bash
+shim) in `%USERPROFILE%\.cc2node\bin`, and cc2node prints a `setx PATH` line to add it.
 
 ## How it works
 

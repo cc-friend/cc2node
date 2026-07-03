@@ -53,14 +53,15 @@ function fmtBytes(n: number): string {
 }
 
 function basename(name: string): string {
-  return name.replace(/^.*\//, '');
+  // strip up to the last / or \ (win32 Bun binaries use backslash module paths)
+  return name.replace(/^.*[\\/]/, '');
 }
 
 // entry = the module Bun marked as entry; fall back to a cli.js by name, then largest js.
 export function pickEntry(mods: BunModule[]): BunModule | undefined {
   return (
     mods.find((m) => m.is_entry_point) ??
-    mods.find((m) => /(^|\/)cli\.js$/.test(m.name)) ??
+    mods.find((m) => /(^|[\\/])cli\.js$/.test(m.name)) ??
     mods.filter((m) => /\.(c|m)?js$/.test(m.name)).sort((a, b) => b.contents_length - a.contents_length)[0]
   );
 }
@@ -160,8 +161,9 @@ export async function convert(opts: ConvertOptions): Promise<ConvertResult> {
     // 7) ripgrep
     if (doRipgrep) {
       log.step('Fetching ripgrep');
+      const rgName = platform.startsWith('win32-') ? 'rg.exe' : 'rg';
       try {
-        if (await fetchRipgrep(platform, path.join(outDir, 'rg'), workDir, log)) log.ok('rg bundled');
+        if (await fetchRipgrep(platform, path.join(outDir, rgName), workDir, log)) log.ok('rg bundled');
       } catch (e) {
         log.warn('ripgrep fetch failed (' + (e as Error).message + '). Grep/Glob will use rg from PATH.');
       }

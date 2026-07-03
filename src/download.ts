@@ -27,7 +27,9 @@ export const PLATFORMS = [
   'linux-arm64',
   'linux-arm64-musl',
   'darwin-x64',
-  'darwin-arm64'
+  'darwin-arm64',
+  'win32-x64',
+  'win32-arm64'
 ];
 
 export interface DownloadOpts {
@@ -38,6 +40,7 @@ export interface DownloadOpts {
 
 export function hostPlatform(): string {
   const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
+  if (process.platform === 'win32') return 'win32-' + arch;
   if (process.platform === 'darwin') return 'darwin-' + arch;
   // prefer musl static on Linux when we can detect it (works on old glibc too)
   if (process.platform === 'linux') {
