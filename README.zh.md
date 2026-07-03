@@ -11,6 +11,11 @@
 Claude Code 2.1.112+ 以 [Bun](https://bun.sh) `--compile` 二进制形式发布。cc2node 会下载它,用 unbun 解析内嵌的模块图,把入口 bundle 去 Bun 化(de-bun)使其能在 Node 下运行,转译为单个兼容 Node 18 的 `cli.js`,并打包 ripgrep 以及 Bun 原生提供的那些运行时依赖。
 
 ```sh
+# 把最新版 Claude Code 装成 PATH 上的 `cc2` 命令(或更新):
+npx cc2node          # = cc2node latest --link
+cc2 --version        # 例如 2.1.199 (Claude Code)
+
+# 或把某个具体版本转换到一个文件夹:
 npx cc2node 2.1.185                       # 或 npx cc2node latest
 node cc2node-2.1.185-*/cli.js --version   # 2.1.185 (Claude Code)
 ```
@@ -34,7 +39,8 @@ node cc2node-2.1.185-*/cli.js --version   # 2.1.185 (Claude Code)
 ## 用法
 
 ```
-cc2node <version|tarball|binary> [options]
+cc2node [<version|latest|stable|tarball|binary>] [options]
+cc2node                  安装/更新最新版为 `cc2`(= cc2node latest --link)
 
 输入：
   <version>            例如 2.1.185,或 "latest" / "stable"。
@@ -42,8 +48,12 @@ cc2node <version|tarball|binary> [options]
   <tarball|binary>     一个 claude-*.tar.gz,或已解压出来的 Bun `claude` 二进制。
 
 选项：
+      --link[=<name>]  装到 ~/.cc2node 并在 PATH 上放一个 launcher(默认名:cc2)
+      --bin-dir <dir>  launcher 存放目录(默认:~/.local/bin)
+  -t, --target <t>     转译目标(nodeXX,≥node18);默认:跑 cc2node 的当前 Node
   -p, --platform <p>   目标平台（默认：当前主机）
-  -o, --out <dir>      输出目录（默认：./cc2node-<version>-<platform>）
+  -o, --out <dir>      输出目录(覆盖默认位置)
+  -f, --force          已缓存也重转;覆盖非本工具生成的同名 launcher
       --no-ripgrep     不打包 ripgrep
       --no-install     不在输出目录里 npm install 运行时依赖
       --keep-temp      保留临时工作目录
@@ -52,7 +62,9 @@ cc2node <version|tarball|binary> [options]
 平台：linux-x64、linux-x64-musl、linux-arm64、linux-arm64-musl、darwin-x64、darwin-arm64。
 ```
 
-输出目录包含 `cli.js`(运行于 Node 18+)、`bun-shim.cjs`、`*.node` 原生插件、`rg`、一个 `package.json`,以及一个 `node_modules`(ws、undici、ajv、ajv-formats)。配置从 `~/.claude` 读取,与官方构建一致。
+输出目录包含 `cli.js`、`bun-shim.cjs`、`*.node` 原生插件、`rg`、一个 `package.json`,以及一个 `node_modules`(ws、undici、ajv、ajv-formats)。`cli.js` 运行于转译目标及更新的 Node(默认:你跑 cc2node 的那个 Node;要最可移植就用 `-t node18`)。配置从 `~/.claude` 读取,与官方构建一致。
+
+用 `--link`(以及裸 `cc2node` 快捷方式)时,产物改放到 `~/.cc2node/versions/`,并在 `~/.local/bin` 放一个 launcher(默认 `cc2`);若该目录不在 PATH,cc2node 会打印要加的那一行。
 
 ## 工作原理
 

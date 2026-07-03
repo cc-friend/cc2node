@@ -143,13 +143,16 @@ function progressBar(_log: Logger): (pct: number, got: number, total: number) =>
 function fromClaudeAi(version: string, platform: string, dest: string, log: Logger): Promise<string> {
   return getText(CLAUDE_BASE + '/' + version + '/manifest.json').then((body) => {
     let checksum: string | null = null;
+    let binaryName = 'claude'; // win32 manifests use "claude.exe"
     try {
-      const manifest = JSON.parse(body) as { platforms?: Record<string, { checksum?: string }> };
-      checksum = manifest.platforms?.[platform]?.checksum ?? null;
+      const manifest = JSON.parse(body) as { platforms?: Record<string, { checksum?: string; binary?: string }> };
+      const entry = manifest.platforms?.[platform];
+      checksum = entry?.checksum ?? null;
+      if (entry?.binary) binaryName = entry.binary;
     } catch {
       /* ignore */
     }
-    const url = CLAUDE_BASE + '/' + version + '/' + platform + '/claude';
+    const url = CLAUDE_BASE + '/' + version + '/' + platform + '/' + binaryName;
     log.info('downloads.claude.ai → ' + version + '/' + platform);
     return downloadTo(url, dest, { onProgress: progressBar(log) }).then(() => {
       if (checksum) {

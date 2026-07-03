@@ -4,6 +4,7 @@ import './api.test';
 import './cli.test';
 import './convert.test';
 import './debun.test';
+import './link.test';
 import './log.test';
 import './transpile.test';
 import './version.test';

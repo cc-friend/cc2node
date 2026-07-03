@@ -1,4 +1,8 @@
 export type { ConvertOptions, ConvertResult } from './convert';
 export { convert, RUNTIME_DEPS } from './convert';
 export { hostPlatform, PLATFORMS } from './download';
+export type { InstallOptions, InstallResult } from './install';
+export { cc2Home, defaultBinDir, install } from './install';
+export type { LinkOptions, LinkResult } from './link';
+export { linkLauncher } from './link';
 export type { Logger } from './log';

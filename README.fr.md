@@ -11,6 +11,11 @@ Convertit n'importe quelle version de Claude Code compilée avec Bun en un build
 Claude Code 2.1.112+ est distribué sous forme de binaire [Bun](https://bun.sh) `--compile`. cc2node le télécharge, analyse le graphe de modules embarqué avec unbun, « de-bun » le bundle d'entrée pour qu'il s'exécute sous Node, le transpile en un unique `cli.js` compatible Node 18, et embarque ripgrep ainsi que les dépendances d'exécution que Bun fournissait nativement.
 
 ```sh
+# installer / mettre à jour le dernier Claude Code comme commande `cc2` sur le PATH :
+npx cc2node          # = cc2node latest --link
+cc2 --version        # p. ex. 2.1.199 (Claude Code)
+
+# ou convertir une version précise dans un dossier :
 npx cc2node 2.1.185                       # Ou npx cc2node latest
 node cc2node-2.1.185-*/cli.js --version   # 2.1.185 (Claude Code)
 ```
@@ -34,7 +39,8 @@ Les addons natifs et `rg` sont spécifiques à la plateforme ; construisez donc 
 ## Utilisation
 
 ```
-cc2node <version|tarball|binary> [options]
+cc2node [<version|latest|stable|tarball|binary>] [options]
+cc2node                  installer/mettre à jour le dernier en `cc2` (= cc2node latest --link)
 
 Entrée :
   <version>            p. ex. 2.1.185, ou "latest" / "stable".
@@ -42,8 +48,12 @@ Entrée :
   <tarball|binary>     un claude-*.tar.gz ou un binaire Bun `claude` déjà extrait.
 
 Options :
+      --link[=<name>]  installe dans ~/.cc2node et met un lanceur sur le PATH (nom par défaut : cc2)
+      --bin-dir <dir>  où va le lanceur (par défaut : ~/.local/bin)
+  -t, --target <t>     cible de transpilation (nodeXX, ≥ node18) ; défaut : le Node qui exécute cc2node
   -p, --platform <p>   plateforme cible (par défaut : cet hôte)
-  -o, --out <dir>      répertoire de sortie (par défaut : ./cc2node-<version>-<platform>)
+  -o, --out <dir>      répertoire de sortie (remplace l'emplacement par défaut)
+  -f, --force          reconvertir même si en cache ; écraser un lanceur étranger
       --no-ripgrep     ne pas embarquer ripgrep
       --no-install     ne pas npm install les dépendances d'exécution dans la sortie
       --keep-temp      conserver le répertoire de travail temporaire
@@ -52,7 +62,9 @@ Options :
 Plateformes : linux-x64, linux-x64-musl, linux-arm64, linux-arm64-musl, darwin-x64, darwin-arm64.
 ```
 
-Le répertoire de sortie contient `cli.js` (s'exécute sur Node 18+), `bun-shim.cjs`, les addons `*.node`, `rg`, un `package.json` et un `node_modules` (ws, undici, ajv, ajv-formats). La configuration est lue depuis `~/.claude`, comme le build officiel.
+Le répertoire de sortie contient `cli.js`, `bun-shim.cjs`, les addons `*.node`, `rg`, un `package.json` et un `node_modules` (ws, undici, ajv, ajv-formats). `cli.js` s'exécute sur la cible de transpilation et plus récent (par défaut : le Node avec lequel vous avez lancé cc2node ; utilisez `-t node18` pour le build le plus portable). La configuration est lue depuis `~/.claude`, comme le build officiel.
+
+Avec `--link` (et le raccourci `cc2node` sans argument), le build va plutôt dans `~/.cc2node/versions/` et un lanceur (par défaut `cc2`) est placé dans `~/.local/bin` ; si ce dossier n'est pas sur votre PATH, cc2node affiche la ligne à ajouter.
 
 ## Fonctionnement
 

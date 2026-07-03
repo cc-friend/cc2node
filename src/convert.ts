@@ -14,7 +14,7 @@ import { debun } from './debun';
 import { hostPlatform, obtainBinary } from './download';
 import defaultLog, { type Logger } from './log';
 import { fetchRipgrep } from './ripgrep';
-import { transpileToNode18 } from './transpile';
+import { transpile } from './transpile';
 import { sniffVersion } from './version';
 
 const ASSETS = path.join(__dirname, '..', 'assets');
@@ -31,6 +31,7 @@ export const RUNTIME_DEPS: Record<string, string> = {
 export interface ConvertOptions {
   input: string;
   platform?: string;
+  target?: string;
   out?: string;
   ripgrep?: boolean;
   install?: boolean;
@@ -69,6 +70,7 @@ export async function convert(opts: ConvertOptions): Promise<ConvertResult> {
   const platform = opts.platform || hostPlatform();
   const doInstall = opts.install !== false;
   const doRipgrep = opts.ripgrep !== false;
+  const target = opts.target || 'node18';
 
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cc2node-'));
   const cleanup = () => {
@@ -111,15 +113,15 @@ export async function convert(opts: ConvertOptions): Promise<ConvertResult> {
     fs.mkdirSync(outDir, { recursive: true });
 
     // 4) de-bun + transpile to a single Node-18 cli.js
-    log.step('De-bunning + transpiling cli.js (node18)');
+    log.step('De-bunning + transpiling cli.js (' + target + ')');
     const shimSource = fs.readFileSync(path.join(ASSETS, 'bun-shim.cjs'), 'utf8');
     const polyfills = fs.readFileSync(path.join(ASSETS, 'polyfills.cjs'), 'utf8');
-    const cli = await transpileToNode18(debun(entrySource, shimSource, version), polyfills);
+    const cli = await transpile(debun(entrySource, shimSource, version), polyfills, target);
     const cliPath = path.join(outDir, 'cli.js');
     fs.writeFileSync(cliPath, cli);
     fs.chmodSync(cliPath, 0o755);
     fs.copyFileSync(path.join(ASSETS, 'bun-shim.cjs'), path.join(outDir, 'bun-shim.cjs'));
-    log.ok('cli.js (' + fmtBytes(Buffer.byteLength(cli)) + ')  [runs on Node 18+]');
+    log.ok('cli.js (' + fmtBytes(Buffer.byteLength(cli)) + ')  [target ' + target + ']');
 
     // 5) native addons (.node / .wasm) next to cli.js (basename; shim redirects /$bunfs/root/*)
     const written: string[] = [];
