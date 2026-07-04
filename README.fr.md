@@ -6,7 +6,7 @@
 
 [English](README.md) | [中文](README.zh.md) | **Français**
 
-Cet outil CLI peut convertir n'importe quel binaire de Claude Code compilé avec Bun en un build JavaScript pur (Node.js) qui s'exécute sur un simple **Node 18+**. Aucun runtime Bun requis. Basé sur [unbun](https://github.com/cc-friend/unbun).
+Cet outil CLI peut convertir des binaires compilés avec Bun de n'importe quelle version de Claude Code en un build JavaScript pur (Node.js) qui s'exécute sur un simple **Node 18+**. Aucun runtime Bun requis. Basé sur [unbun](https://github.com/cc-friend/unbun).
 
 Claude Code 2.1.112+ d'Anthropic est distribué sous forme de binaire [Bun](https://bun.sh) `--compile`. cc2js le télécharge, analyse le graphe de modules embarqué avec unbun, « de-bun » le bundle d'entrée pour qu'il s'exécute sous Node, le transpile en un unique `cli.js` compatible Node (Node 18 minimum), et embarque ripgrep ainsi que les dépendances d'exécution que Bun fournissait nativement.
 
@@ -23,7 +23,7 @@ npm i -g cc2js
 Installer / mettre à jour le dernier Claude Code comme commande `cc2` sur le `PATH` :
 
 ```sh
-cc2js        # = cc2js latest --link-name cc2
+cc2js          # = cc2js latest --link-name cc2
 cc2            # lancer le Claude Code que cc2js vient d'installer
 cc2 --version  # p. ex. 2.1.199 (Claude Code)
 ```
@@ -32,13 +32,13 @@ Ou seulement convertir une version dans un dossier, sans installer (`-o` = ne pa
 
 ```sh
 cc2js 2.1.185 -o ./cc
-node ./cc/cli.js --version  # 2.1.185 (Claude Code)
+node ./cc/cli.js  # lancer le Claude Code que cc2js vient d'installer
 ```
 
 Graver des flags dans le lanceur (conservés d'une mise à jour à l'autre ; `--no-cc-flags` les efface) :
 
 ```sh
-cc2js latest -- --dangerously-skip-permissions
+cc2js -- --dangerously-skip-permissions
 ```
 
 Lister les versions et liens installés, ou tout supprimer :

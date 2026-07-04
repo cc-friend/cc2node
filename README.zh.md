@@ -6,7 +6,7 @@
 
 [English](README.md) | **中文** | [Français](README.fr.md)
 
-这个 CLI 工具可以把任意 Bun 编译的 Claude Code 二进制转换为纯 JavaScript（Node.js）构建，可在普通 **Node 18+** 上运行。无需 Bun 运行时。基于 [unbun](https://github.com/cc-friend/unbun)。
+这个 CLI 工具可以把任意 Claude Code 版本的 Bun 编译二进制转换为纯 JavaScript（Node.js）构建，可在普通 **Node 18+** 上运行。无需 Bun 运行时。基于 [unbun](https://github.com/cc-friend/unbun)。
 
 Anthropic 的 Claude Code 2.1.112+ 以 [Bun](https://bun.sh) `--compile` 二进制形式发布。cc2js 会下载它，用 unbun 解析内嵌的模块图，把入口 bundle 去 Bun 化（de-bun）使其能在 Node 下运行，转译为单个 Node 兼容的 `cli.js`（最低 Node 18），并打包 ripgrep 以及 Bun 原生提供的那些运行时依赖。
 
@@ -23,7 +23,7 @@ npm i -g cc2js
 把最新版 Claude Code 装成 `PATH` 上的 `cc2` 命令（或更新）：
 
 ```sh
-cc2js        # = cc2js latest --link-name cc2
+cc2js          # = cc2js latest --link-name cc2
 cc2            # 运行 cc2js 刚装的 Claude Code
 cc2 --version  # 例如 2.1.199 (Claude Code)
 ```
@@ -32,13 +32,13 @@ cc2 --version  # 例如 2.1.199 (Claude Code)
 
 ```sh
 cc2js 2.1.185 -o ./cc
-node ./cc/cli.js --version  # 2.1.185 (Claude Code)
+node ./cc/cli.js  # 运行 cc2js 刚装的 Claude Code
 ```
 
 把 flags 固化进 launcher（跨更新保留；`--no-cc-flags` 清除）：
 
 ```sh
-cc2js latest -- --dangerously-skip-permissions
+cc2js -- --dangerously-skip-permissions
 ```
 
 列出已安装的版本与链接，或删除它们：

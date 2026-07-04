@@ -6,7 +6,7 @@
 
 **English** | [中文](README.zh.md) | [Français](README.fr.md)
 
-This CLI tool can convert any Bun-compiled Claude Code binary into a pure JavaScript (Node.js) build that runs on plain **Node 18+**. No Bun runtime required. Built on [unbun](https://github.com/cc-friend/unbun).
+This CLI tool can convert Bun-compiled binaries of any Claude Code version into a pure JavaScript (Node.js) build that runs on plain **Node 18+**. No Bun runtime required. Built on [unbun](https://github.com/cc-friend/unbun).
 
 Anthropic's Claude Code 2.1.112+ ships as a [Bun](https://bun.sh) `--compile` binary. cc2js downloads it, parses the embedded module graph with unbun, de-buns the entry bundle so it runs under Node, transpiles it to a single Node-compatible `cli.js` (Node 18 minimum), and bundles ripgrep plus the runtime deps Bun provided natively.
 
@@ -23,7 +23,7 @@ npm i -g cc2js
 Install / update the latest Claude Code as a `cc2` command on your `PATH`:
 
 ```sh
-cc2js        # = cc2js latest --link-name cc2
+cc2js          # = cc2js latest --link-name cc2
 cc2            # run the Claude Code cc2js just installed
 cc2 --version  # e.g. 2.1.199 (Claude Code)
 ```
@@ -32,13 +32,13 @@ Or just convert a version into a folder instead of installing (`-o` = don't inst
 
 ```sh
 cc2js 2.1.185 -o ./cc
-node ./cc/cli.js --version  # 2.1.185 (Claude Code)
+node ./cc/cli.js  # run the Claude Code cc2js just installed
 ```
 
 Bake flags into the launcher (kept across updates; `--no-cc-flags` clears):
 
 ```sh
-cc2js latest -- --dangerously-skip-permissions
+cc2js -- --dangerously-skip-permissions
 ```
 
 List installed versions & links, or remove them:

@@ -1,7 +1,7 @@
 {
   "name": "cc2js",
   "version": "0.0.1",
-  "description": "Convert any Bun-compiled Claude Code release into a pure Node.js build that runs on plain Node 18+",
+  "description": "CLI that converts Bun-compiled binaries of any Claude Code version into a pure JavaScript build that runs on plain Node 18+",
   "keywords": [
     "claude-code",
     "claude",
@@ -67,12 +67,12 @@
   },
   "dependencies": {
     "unbunjs": "^1.0.0",
-    "esbuild": "^0.25.0"
+    "esbuild": "^0.28.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.2",
     "@types/node": "^26.1.0",
-    "tsx": "^4.19.0",
+    "tsx": "^4.23.0",
     "typescript": "^6.0.3",
     "vbt": "^2.0.0"
   }
