@@ -101,16 +101,17 @@ test('runManage("clean") without --yes and no TTY rejects', async () => {
 });
 
 test('renderLs shows versions, links, flags, dangling', () => {
+  const dir = path.join('/v', '2.1.199-linux-x64'); // build with path.sep so the "← linked" match works on Windows too
   const out = renderLs(
     '/v',
-    [{ version: '2.1.199', platform: 'linux-x64', dir: '/v/2.1.199-linux-x64', bytes: 1e6 }],
+    [{ version: '2.1.199', platform: 'linux-x64', dir, bytes: 1e6 }],
     [
       {
         name: 'cc2',
         version: '2.1.199',
         platform: 'linux-x64',
         ccFlags: ['--x'],
-        target: '/v/2.1.199-linux-x64/cli.js',
+        target: path.join(dir, 'cli.js'),
         dangling: false,
         primaryPath: '/b/cc2'
       },
