@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import os from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
-import { defaultTarget, normalizeTarget, parseArgs, resolveDoLink } from '../src/cli';
+import { defaultTarget, normalizeTarget, parseArgs, renderLs, resolveDoLink, runManage } from '../src/cli';
 
 test('parseArgs collects input + platform', () => {
   const a = parseArgs(['2.1.185', '-p', 'linux-x64']);
@@ -62,4 +64,69 @@ test('defaultTarget follows current major, clamped to 18', () => {
   assert.equal(defaultTarget(24), 'node24');
   assert.equal(defaultTarget(18), 'node18');
   assert.equal(defaultTarget(16), 'node18');
+});
+
+test('parseArgs collects flags after -- and handles --no-cc-flags/--yes', () => {
+  const a = parseArgs(['latest', '--', '--dangerously-skip-permissions', '--mcp-config', 'x.json']);
+  assert.deepEqual(a._, ['latest']);
+  assert.deepEqual(a.ccFlags, ['--dangerously-skip-permissions', '--mcp-config', 'x.json']);
+
+  const b = parseArgs(['latest']);
+  assert.equal(b.ccFlags, null); // not given
+
+  const c = parseArgs(['clean', '--yes']);
+  assert.deepEqual(c._, ['clean']);
+  assert.equal(c.yes, true);
+
+  const d = parseArgs(['latest', '--no-cc-flags']);
+  assert.equal(d.noCcFlags, true);
+  assert.deepEqual(d.ccFlags, null);
+
+  assert.equal(parseArgs(['clean', '-y']).yes, true);
+  assert.equal(parseArgs(['latest']).yes, false);
+  assert.equal(parseArgs(['latest']).noCcFlags, false);
+});
+
+test('runManage("clean") without --yes and no TTY rejects', async () => {
+  const orig = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
+  Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true });
+  try {
+    await assert.rejects(
+      runManage('clean', parseArgs(['clean', '--bin-dir', path.join(os.tmpdir(), 'cc2node-nope')])),
+      /confirm|--yes/i
+    );
+  } finally {
+    if (orig) Object.defineProperty(process.stdin, 'isTTY', orig);
+  }
+});
+
+test('renderLs shows versions, links, flags, dangling', () => {
+  const out = renderLs(
+    '/v',
+    [{ version: '2.1.199', platform: 'linux-x64', dir: '/v/2.1.199-linux-x64', bytes: 1e6 }],
+    [
+      {
+        name: 'cc2',
+        version: '2.1.199',
+        platform: 'linux-x64',
+        ccFlags: ['--x'],
+        target: '/v/2.1.199-linux-x64/cli.js',
+        dangling: false,
+        primaryPath: '/b/cc2'
+      },
+      {
+        name: 'old',
+        version: '1.0.0',
+        platform: 'linux-x64',
+        ccFlags: [],
+        target: '/gone/cli.js',
+        dangling: true,
+        primaryPath: '/b/old'
+      }
+    ],
+    '/b'
+  );
+  assert.match(out, /2\.1\.199\s+linux-x64\s+1\.0 MB\s+← linked/);
+  assert.match(out, /cc2 → 2\.1\.199 \(linux-x64\)\s+\[--x\]/);
+  assert.match(out, /old → 1\.0\.0 .*MISSING/);
 });

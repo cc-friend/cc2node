@@ -6,10 +6,13 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import readline from 'node:readline';
 import { convert } from './convert';
 import { hostPlatform, PLATFORMS } from './download';
-import { install } from './install';
+import { cc2Home, defaultBinDir, install } from './install';
+import { delinkLauncher } from './link';
 import log from './log';
+import { clean, type LinkEntry, listLinks, listVersions, removeVersion, type VersionEntry } from './manage';
 
 function pkgVersion(): string {
   const p = path.join(__dirname, '..', 'package.json');
@@ -29,6 +32,9 @@ export interface Args {
   force: boolean;
   keepTemp: boolean;
   addPath: boolean;
+  ccFlags: string[] | null; // flags after `--` to bake into the launcher (null = not given)
+  noCcFlags: boolean;
+  yes: boolean;
   help: boolean;
   version: boolean;
 }
@@ -47,6 +53,9 @@ export function parseArgs(argv: string[]): Args {
     force: false,
     keepTemp: false,
     addPath: true,
+    ccFlags: null,
+    noCcFlags: false,
+    yes: false,
     help: false,
     version: false
   };
@@ -101,6 +110,17 @@ export function parseArgs(argv: string[]): Args {
       case '--keep-temp':
         a.keepTemp = true;
         break;
+      case '--':
+        a.ccFlags = argv.slice(i + 1);
+        i = argv.length;
+        break;
+      case '--no-cc-flags':
+        a.noCcFlags = true;
+        break;
+      case '-y':
+      case '--yes':
+        a.yes = true;
+        break;
       default:
         if (x.startsWith('--link-name=')) a.linkName = x.slice(12);
         else if (x.startsWith('--bin-dir=')) a.binDir = x.slice(10);
@@ -145,7 +165,8 @@ function help(): void {
       ' — Bun-compiled Claude Code → pure Node\n\n' +
       'Usage:\n' +
       '  cc2node [<version|latest|stable|tarball|binary>] [options]\n' +
-      '  cc2node                  install/update the latest Claude Code as `cc2` (= cc2node latest)\n\n' +
+      '  cc2node                  install/update the latest Claude Code as `cc2` (= cc2node latest)\n' +
+      '  cc2node ls | rm <version> | delink [name] | clean   manage installed versions & links\n\n' +
       'By default cc2node installs to ~/.cc2node and puts a `cc2` command on PATH.\n' +
       'Pass -o (or --no-link) to just convert into a folder instead.\n\n' +
       'Options:\n' +
@@ -167,8 +188,89 @@ function help(): void {
       '      --no-ripgrep         do not bundle ripgrep\n' +
       '      --no-install         do not npm install runtime deps into the output\n' +
       '      --keep-temp          keep the temp work directory\n' +
+      '  -- <claude flags…>       bake flags into the launcher (e.g. -- --dangerously-skip-permissions)\n' +
+      '      --no-cc-flags        clear any previously-baked flags on update\n' +
+      '  -y, --yes                skip the confirmation prompt (clean)\n' +
       '  -h, --help / -v, --version\n'
   );
+}
+
+function mgmtDirs(args: Args): { versionsDir: string; binDir: string } {
+  return {
+    versionsDir: path.join(cc2Home(), 'versions'),
+    binDir: args.binDir ?? defaultBinDir()
+  };
+}
+
+export function renderLs(versionsDir: string, versions: VersionEntry[], links: LinkEntry[], binDir: string): string {
+  const lines: string[] = [];
+  lines.push('Installed versions (' + versionsDir + '):');
+  if (!versions.length) lines.push('  (none)');
+  for (const v of versions) {
+    const mb = (v.bytes / 1e6).toFixed(1) + ' MB';
+    const used = links.some((l) => l.target.startsWith(v.dir + path.sep)) ? '  ← linked' : '';
+    lines.push('  ' + v.version + '  ' + v.platform + '  ' + mb + used);
+  }
+  lines.push('');
+  lines.push('Links (' + binDir + '):');
+  if (!links.length) lines.push('  (none)');
+  for (const l of links) {
+    const flags = l.ccFlags.length ? '  [' + l.ccFlags.join(' ') + ']' : '';
+    const state = l.dangling ? '  MISSING (target gone)' : '';
+    lines.push('  ' + l.name + ' → ' + (l.version ?? '?') + ' (' + (l.platform ?? '?') + ')' + flags + state);
+  }
+  return lines.join('\n') + '\n';
+}
+
+export async function runManage(sub: string, args: Args): Promise<void> {
+  const { versionsDir, binDir } = mgmtDirs(args);
+  const target = args._[1];
+
+  if (sub === 'ls') {
+    const versions = listVersions(versionsDir).sort((a, b) =>
+      (a.version + a.platform).localeCompare(b.version + b.platform)
+    );
+    const links = listLinks(binDir).sort((a, b) => a.name.localeCompare(b.name));
+    process.stdout.write(renderLs(versionsDir, versions, links, binDir));
+    return;
+  }
+
+  if (sub === 'rm') {
+    if (!target) throw new Error('usage: cc2node rm <version>');
+    const r = removeVersion(target, versionsDir, binDir); // throws on unknown version
+    for (const d of r.removed) log.ok('removed ' + d);
+    for (const d of r.delinked) log.ok('delinked ' + d);
+    return;
+  }
+
+  if (sub === 'delink') {
+    const name = target ?? 'cc2';
+    const removed = delinkLauncher(binDir, name);
+    if (!removed.length) throw new Error('no cc2node launcher named "' + name + '" in ' + binDir);
+    for (const p of removed) log.ok('delinked ' + p);
+    return;
+  }
+
+  // clean
+  if (!args.yes) {
+    if (!process.stdin.isTTY) throw new Error('refusing to clean without --yes (non-interactive)');
+    if (!(await confirm('Remove ALL cc2node versions and links? [y/N] '))) {
+      log.info('aborted');
+      return;
+    }
+  }
+  const r = clean(versionsDir, binDir);
+  log.ok('removed ' + r.removedVersions.length + ' version(s), ' + r.delinked.length + ' launcher file(s)');
+}
+
+function confirm(prompt: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(prompt, (answer) => {
+      rl.close();
+      resolve(/^y(es)?$/i.test(answer.trim()));
+    });
+  });
 }
 
 function main(): void {
@@ -187,6 +289,15 @@ function main(): void {
   if (args.help) {
     help();
     process.exit(0);
+  }
+
+  const sub = args._[0];
+  if (sub === 'ls' || sub === 'rm' || sub === 'delink' || sub === 'clean') {
+    runManage(sub, args).catch((e) => {
+      log.err((e as Error).message);
+      process.exit(1);
+    });
+    return;
   }
 
   const platform = args.platform ?? hostPlatform();
@@ -229,10 +340,22 @@ function main(): void {
       force: args.force,
       keepTemp: args.keepTemp,
       addPath: args.addPath,
+      ccFlags: args.ccFlags ?? undefined,
+      noCcFlags: args.noCcFlags,
       log
     })
       .then((r) => {
-        log.ok(linkName + ' → ' + r.launcherPath + '  [Claude Code ' + r.version + (r.cached ? ', cached' : '') + ']');
+        if (r.status === 'unchanged') {
+          log.ok(linkName + ' already up to date → ' + r.launcherPath + '  [Claude Code ' + r.version + ']');
+        } else {
+          const verb = r.status === 'linked' ? 'linked' : 'updated';
+          const ver =
+            r.status === 'updated' && r.previousVersion && r.previousVersion !== r.version
+              ? r.previousVersion + ' → ' + r.version
+              : r.version;
+          log.ok(verb + ' ' + linkName + ' → ' + r.launcherPath + '  [Claude Code ' + ver + ']');
+        }
+        if (r.ccFlags.length) log.info('baked flags: ' + r.ccFlags.join(' '));
         if (!r.onPath) {
           const dir = path.dirname(r.launcherPath);
           const ap = r.addPath;
