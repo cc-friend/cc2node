@@ -6,9 +6,9 @@
 
 [English](README.md) | **中文** | [Français](README.fr.md)
 
-把任意 Bun 编译的 Claude Code 版本转换为纯 Node 构建，可在普通 **Node 18+** 上运行。无需 Bun 运行时。基于 [unbun](https://www.npmjs.com/package/unbunjs)。
+把任意 Bun 编译的 Claude Code 版本转换为纯 Node 构建，可在普通 **Node 18+** 上运行。无需 Bun 运行时。基于 [unbun](https://github.com/cc-friend/unbun)。
 
-Claude Code 2.1.112+ 以 [Bun](https://bun.sh) `--compile` 二进制形式发布。cc2node 会下载它，用 unbun 解析内嵌的模块图，把入口 bundle 去 Bun 化（de-bun）使其能在 Node 下运行，转译为单个兼容 Node 18 的 `cli.js`，并打包 ripgrep 以及 Bun 原生提供的那些运行时依赖。
+Claude Code 2.1.112+ 以 [Bun](https://bun.sh) `--compile` 二进制形式发布。cc2node 会下载它，用 unbun 解析内嵌的模块图，把入口 bundle 去 Bun 化（de-bun）使其能在 Node 下运行，转译为单个 Node 兼容的 `cli.js`（最低 Node 18），并打包 ripgrep 以及 Bun 原生提供的那些运行时依赖。
 
 ```sh
 # 把最新版 Claude Code 装成 PATH 上的 `cc2` 命令（或更新）：
@@ -18,6 +18,13 @@ cc2 --version        # 例如 2.1.199 (Claude Code)
 # 或只转换到一个文件夹、不安装（-o = 不装）：
 npx cc2node 2.1.185 -o ./cc          # 或：npx cc2node latest -o ./cc
 node ./cc/cli.js --version           # 2.1.185 (Claude Code)
+
+# 把 flags 固化进 launcher（跨更新保留；--no-cc-flags 清除）：
+npx cc2node latest -- --dangerously-skip-permissions
+
+# 列出已安装的版本与链接，或删除它们：
+cc2node ls
+cc2node clean            # 删除全部；或用 rm <version>、delink [name]
 ```
 
 ## 用途
@@ -26,7 +33,7 @@ node ./cc/cli.js --version           # 2.1.185 (Claude Code)
 
 其他用途：
 
-- 阅读或审计真实的 `cli.js` 源码（esbuild 会美化它）。
+- 阅读或审计真实的 `cli.js` 源码（esbuild 会重排格式，结构可读，但变量名仍是压缩后的短名）。
 - Diff 两个版本的 `cli.js`，查看改动。
 - 通过可编辑的 Bun-to-Node shim 打补丁或定制。
 - 在 `node --inspect`、性能分析器、覆盖率工具或自定义 loader 下调试。
@@ -41,6 +48,7 @@ node ./cc/cli.js --version           # 2.1.185 (Claude Code)
 ```
 cc2node [<version|latest|stable|tarball|binary>] [options]
 cc2node                  安装/更新最新版为 `cc2`（= cc2node latest）
+cc2node ls | rm <version> | delink [name] | clean   管理已安装的版本与链接
 
 任何版本默认都会安装（装到 ~/.cc2node，作为 PATH 上的 `cc2`）；想要文件夹就加 -o。
 
@@ -61,19 +69,30 @@ cc2node                  安装/更新最新版为 `cc2`（= cc2node latest）
       --no-ripgrep     不打包 ripgrep
       --no-install     不在输出目录里 npm install 运行时依赖
       --keep-temp      保留临时工作目录
+  -- <flags>           把 flags 固化进 launcher；随更新保留
+      --no-cc-flags    清除已固化的 flags
   -h, --help / -v, --version
 
 平台：linux-x64、linux-x64-musl、linux-arm64、linux-arm64-musl、darwin-x64、darwin-arm64、win32-x64、win32-arm64。
+
+管理：
+  cc2node ls             列出已安装版本与链接
+  cc2node rm <version>   删除一个版本（级联 delink）
+  cc2node delink [name]  删除一个 launcher（默认：cc2）
+  cc2node clean          删除所有版本与链接（提示 y/N，或 --yes）
+  （均接受 --bin-dir <dir>）
 ```
 
 用 `-o <dir>`（或 `--no-link`）时，cc2node 转换到一个文件夹，内含 `cli.js`、`bun-shim.cjs`、`*.node` 原生插件、`rg`（Windows 上为 `rg.exe`）、一个 `package.json`，以及一个 `node_modules`（ws、undici、ajv、ajv-formats）。`cli.js` 运行于转译目标及更新的 Node（默认：你跑 cc2node 的那个 Node；要最可移植就用 `-t node18`）。配置从 `~/.claude` 读取，与官方构建一致。
 
 默认（不带 `-o`）时，产物放到 `~/.cc2node/versions/`，并放一个 launcher（默认 `cc2`）到 `~/.local/bin`（Windows 上是 `cc2.cmd` + `cc2.ps1` + 一个 Git Bash 用的 `cc2`，位于 `%USERPROFILE%\.cc2node\bin`）。若该目录还不在 PATH 上，cc2node 会替你加进去 —— Windows 写用户级 PATH（走环境变量 API，不是 `setx`），bash/zsh 写对应 rc —— 然后你开一个新终端即可生效（已经开着的终端任何进程都改不了）。它不会重复添加，也不动本来就能用的 PATH；`--no-add-path` 可关掉（改为只打印那一行），fish/tcsh 则始终给你一条正确语法的手动命令。
 
+每次安装/更新都会报告结果：`linked`（首次安装）、`updated`（`old → new`）或 `unchanged`（已是最新）。
+
 ## 工作原理
 
 1. 从 downloads.claude.ai 下载 Bun 二进制（校验 SHA-256；并有 GitHub 与 npm 兜底）。
-2. 用 [unbun](https://www.npmjs.com/package/unbunjs) 解析内嵌的模块图，取出入口模块与原生插件。
+2. 用 [unbun](https://github.com/cc-friend/unbun) 解析内嵌的模块图，取出入口模块与原生插件。
 3. 对 `cli.js` 去 Bun 化：去掉 `// @bun` 指令，调用 Bun 平时自己调用的那个 CommonJS 包装函数，并在前面拼上 `bun-shim.cjs`（用 Node 重新实现的 `Bun.*` API）。
 4. 用 esbuild 转译到 Node 18（降级 `using`），并在前面加上少量运行时 polyfill，产出一个能在 Node 18 到 26+ 上运行的 `cli.js`。
 5. 加入 ripgrep，并 `npm install` 运行时依赖。
