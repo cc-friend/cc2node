@@ -9,7 +9,7 @@ import path from 'node:path';
 import { type AddPathResult, addToPath } from './addpath';
 import { type ConvertOptions, convert } from './convert';
 import { hostPlatform, resolveChannel } from './download';
-import { linkLauncher } from './link';
+import { linkLauncher, parseLauncher } from './link';
 import defaultLog, { type Logger } from './log';
 
 export function cc2Home(): string {
@@ -34,6 +34,8 @@ export interface InstallOptions {
   force?: boolean;
   keepTemp?: boolean;
   addPath?: boolean; // persist binDir onto the user's PATH when it isn't already
+  ccFlags?: string[]; // Claude flags to bake in (undefined = not specified this run)
+  noCcFlags?: boolean; // clear any previously-baked flags
   log?: Logger;
 }
 
@@ -46,6 +48,9 @@ export interface InstallResult {
   onPath: boolean;
   pathHint?: string;
   addPath?: AddPathResult; // outcome of the --add-path attempt (only when requested and not onPath)
+  status: 'linked' | 'updated' | 'unchanged';
+  previousVersion?: string;
+  ccFlags: string[];
 }
 
 function convertTo(opts: InstallOptions, input: string, platform: string, out: string, log: Logger) {
@@ -60,6 +65,16 @@ function convertTo(opts: InstallOptions, input: string, platform: string, out: s
     keepTemp: opts.keepTemp
   };
   return convert(co);
+}
+
+export function resolveCcFlags(
+  given: string[] | undefined,
+  noCcFlags: boolean | undefined,
+  existing: string[] | undefined
+): string[] {
+  if (given !== undefined) return given;
+  if (noCcFlags) return [];
+  return existing ?? [];
 }
 
 export async function install(opts: InstallOptions): Promise<InstallResult> {
@@ -99,13 +114,17 @@ export async function install(opts: InstallOptions): Promise<InstallResult> {
     }
   }
 
+  const existing = parseLauncher(binDir, name);
+  const ccFlags = resolveCcFlags(opts.ccFlags, opts.noCcFlags, existing?.ccFlags);
+
   const link = linkLauncher({
     cliPath: path.join(outDir, 'cli.js'),
     name,
     binDir,
     version,
     platform,
-    force: opts.force
+    force: opts.force,
+    ccFlags
   });
 
   // Persist binDir onto PATH (opt-out via --no-add-path) only when it isn't
@@ -120,6 +139,9 @@ export async function install(opts: InstallOptions): Promise<InstallResult> {
     launcherPath: link.launcherPath,
     onPath: link.onPath,
     pathHint: link.pathHint,
-    addPath
+    addPath,
+    status: link.status,
+    previousVersion: link.previousVersion,
+    ccFlags: link.ccFlags
   };
 }
