@@ -12,7 +12,8 @@ Claude Code 2.1.112+ 以 [Bun](https://bun.sh) `--compile` 二进制形式发布
 
 ```sh
 # 把最新版 Claude Code 装成 PATH 上的 `cc2` 命令（或更新）：
-npx cc2node          # = cc2node latest
+npx cc2node          # = npx cc2node latest
+cc2                  # 运行 cc2node 刚装的 Claude Code
 cc2 --version        # 例如 2.1.199 (Claude Code)
 
 # 或只转换到一个文件夹、不安装（-o = 不装）：

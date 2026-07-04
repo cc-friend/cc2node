@@ -12,7 +12,8 @@ Claude Code 2.1.112+ ships as a [Bun](https://bun.sh) `--compile` binary. cc2nod
 
 ```sh
 # install / update the latest Claude Code as a `cc2` command on your PATH:
-npx cc2node          # = cc2node latest
+npx cc2node          # = npx cc2node latest
+cc2                  # run the Claude Code cc2node just installed
 cc2 --version        # e.g. 2.1.199 (Claude Code)
 
 # or just convert a version into a folder instead of installing (-o = don't install):

@@ -12,7 +12,8 @@ Claude Code 2.1.112+ est distribué sous forme de binaire [Bun](https://bun.sh) 
 
 ```sh
 # installer / mettre à jour le dernier Claude Code comme commande `cc2` sur le PATH :
-npx cc2node          # = cc2node latest
+npx cc2node          # = npx cc2node latest
+cc2                  # lancer le Claude Code que cc2node vient d'installer
 cc2 --version        # p. ex. 2.1.199 (Claude Code)
 
 # ou seulement convertir une version dans un dossier, sans installer (-o = ne pas installer) :
